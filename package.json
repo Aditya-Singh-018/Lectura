@@ -1,0 +1,23 @@
+{
+  "name": "lectura",
+  "version": "1.0.0",
+  "description": "A platform that converts your youtube lectures into a complete learning platform",
+  "homepage": "https://github.com/Aditya-Singh-018/Lectura#readme",
+  "bugs": {
+    "url": "https://github.com/Aditya-Singh-018/Lectura/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Aditya-Singh-018/Lectura.git"
+  },
+  "license": "ISC",
+  "author": "Aditya Singh",
+  "scripts": {
+    "server": "npm run dev --prefix server",
+    "client": "npm run dev --prefix client",
+    "dev": "concurrently \"npm run server\" \"npm run client\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

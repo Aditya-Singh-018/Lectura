@@ -1,0 +1,16 @@
+# Dependency folders (Never upload these, they are massive)
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Environment Secrets (CRITICAL: Keeps your API & DB keys private)
+.env
+client/.env
+server/.env
+
+# Production Build outputs
+client/dist/
+
+# System specific files
+.DS_Store
+Thumbs.db
