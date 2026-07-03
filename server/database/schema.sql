@@ -10,7 +10,7 @@ CREATE TABLE chunks (
   playlist_id VARCHAR(255) REFERENCES playlists(id) ON DELETE CASCADE,
   video_id VARCHAR(255) NOT NULL,
   content TEXT NOT NULL,          -- Plain English text segment
-  start_time FLOAT NOT NULL,      -- Exact video timestamp marker
+  start_time FLOAT ,      -- Exact video timestamp marker
   embedding vector(384),          -- 384 dimensions matching sentence-transformers
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

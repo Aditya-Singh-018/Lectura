@@ -11,7 +11,7 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 
 
-function checkYoutubeUrl(link){
+export function checkYoutubeUrl(link){
     try{
         const url = new URL(link);
         const hostName = url.hostname;
@@ -39,7 +39,7 @@ function checkYoutubeUrl(link){
 
 }
 
-async function fetchSingleVideoTranscript(videoId){
+export async function fetchSingleVideoTranscript(videoId){
     try{
         const transcript = await YoutubeTranscript.fetchTranscript(videoId);
         return {success:true,data:transcript,error:null};
@@ -50,7 +50,7 @@ async function fetchSingleVideoTranscript(videoId){
     
 }
 
-async function fetchPlaylistVideoIds(playlistId){
+export async function fetchPlaylistVideoIds(playlistId){
     try{
         let baseUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${process.env.YOUTUBE_API_KEY}`;
         //let res = await fetch(url);
@@ -90,16 +90,3 @@ async function fetchPlaylistVideoIds(playlistId){
         return { success: false, data: null, error: err.message };
     }
 }
-
-async function runTest() {
-    console.log("Starting playlist fetch test...");
-    
-    //const playlistId = "PL4cUxeGkcBR9ckFsN0Eshac6O9mKndS_m";
-    const playlistId = "PLKnIA16_RmvYuZauWaPlRTC54KxSNLtNn";
-    const result = await fetchPlaylistVideoIds(playlistId); // Crucial await right here!
-    
-    console.log("--- PLAYLIST TEST RESULT ---");
-    console.log(JSON.stringify(result, null, 2));
-}
-
-runTest();

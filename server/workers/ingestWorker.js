@@ -2,13 +2,19 @@ import {Queue,Worker} from "bullmq";
 import path from "path";
 import IORedis from "ioredis";
 import dotenv from "dotenv";
+import { createClient } from "@supabase/supabase-js";
 
-import {checkYoutubeUrl} from "../services/fetchTranscript";
-import {fetchSingleVideoTranscript, fetchPlaylistVideoIds} from "../services/fetchTranscript";
-import { cleanTranscript,chunkText } from "../services/chunkText";
-import { embedChunks } from "../services/embedChunks";
+import {checkYoutubeUrl} from "../services/fetchTranscript.js";
+import {fetchSingleVideoTranscript, fetchPlaylistVideoIds} from "../services/fetchTranscript.js";
+import { cleanTranscript,chunkText } from "../services/chunkText.js";
+import { embedChunks } from "../services/embedChunks.js";
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
 
@@ -27,41 +33,54 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{
         await job.updateProgress(30);
 
         if(urlAnalysis.error){
-            console.log(urlAnalysis.error);
+            console.log("URL Analysis Error: ",urlAnalysis.error);
+            throw new Error(`Invalid URL parsed: ${urlAnalysis.error}`);
         }
 
-        if(urlAnalysis.data.type == "playlist"){
+        const isChildJob = job.data.isChildJob || false;
+
+        if(urlAnalysis.data.type == "playlist" && !isChildJob){
             console.log("Playlist detected, fetching Videos...");
-            const videoIds = await fetchPlaylistVideoIds(urlAnalysis.data.id);
+            const videoIdsObj = await fetchPlaylistVideoIds(urlAnalysis.data.id);
+            const videoIds = videoIdsObj.data;
+
+            if (!videoIds || !Array.isArray(videoIds)) {
+                throw new Error("Failed to extract video array from playlist target resource.");
+            }
+
             for(let videoId of videoIds){
                 const singleVideoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-                await ingestQueue.add("ingest-job",{url:singleVideoUrl,playlistId:urlAnalysis.data.id});
+                await ingestQueue.add("ingest-job",{url:singleVideoUrl,playlistId:urlAnalysis.data.id,isChildJob:true});
             }
             await job.updateProgress(100);
             return { success: true,data:null, error : null};
         }
         //if worker is processing a single video
         
-        let transcript = await fetchSingleVideoTranscript(urlAnalysis.data.id);
+        let transcriptObj = await fetchSingleVideoTranscript(urlAnalysis.data.id);
+        let transcript = transcriptObj.data;
         await job.updateProgress(40);
 
-        let cleanedText = cleanTranscript(transcript);
+        let cleanedTextObj = cleanTranscript(transcript);
+        let cleanedText = cleanedTextObj.data;
         await job.updateProgress(60);
 
-        let chunks = chunkText(cleanedText);
+        let chunksObj = chunkText(cleanedText);
+        let chunks = chunksObj.data;
         await job.updateProgress(70);
 
-        let embedVector = await embedChunks(chunks);
+        let embedVectorObj = await embedChunks(chunks);
+        let embedVector = embedVectorObj.data;
         await job.updateProgress(80);
 
         console.log(`Writing vectors and relational text segments to Supabase...`);
         try{
             let insertPayload = chunks.map((chunkText,index)=>{
                 return{
-                    playlist_id:playlistId,
+                    playlist_id:null,
                     video_id:urlAnalysis.data.id,
                     content:chunkText,
-                    start_time:null,
+                    start_time:0,
                     embedding:embedVector[index],
                 };
             });
@@ -72,12 +91,15 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{
             .insert(insertPayload);
 
             if(error){
-                throw new Error(`Supabase Vector Insertion Failed: ${error.message}`);
+                throw error;
+                //throw new Error(`Supabase Vector Insertion Failed: ${error.message}`);
             }
             console.log(`Successfully indexed ${insertPayload.length} vectors into pgvector.`);
-            await updateProgress(100);
+            await job.updateProgress(100);
         }
         catch(dbError){
+            console.error(dbError);
+            console.error("CAUSE:", dbError.cause);
             console.error("Database Cascade Failure:", dbError);
             throw dbError;
         }

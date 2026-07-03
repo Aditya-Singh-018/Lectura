@@ -1,5 +1,5 @@
 
-const cleanTranscript = (transcriptItem) => {
+export function cleanTranscript(transcriptItem){
     try{
         if(!Array.isArray(transcriptItem) || transcriptItem.length == 0){
             return {success: false,data: null, error: "Empty or Invalid transcript"};       
@@ -63,46 +63,3 @@ export function chunkText(text,chunkSize = 1200, chunkOverlap = 200){
         return {success:false, data: null, error: err.messege};
     }
 }
-
-
-
-// // ==========================================
-// // 🧪 INTEGRATION TEST RUNNER
-// // ==========================================
-// function runPipelineTest() {
-//     console.log("🚀 Launching Day 3-4 Pipeline Test...");
-    
-//     // 1. Mocking a chaotic, unformatted YouTube auto-caption payload array
-//     const mockRawTranscript = [
-//         { text: "welcome back everyone today we are talking about vector databases" },
-//         { text: "um uh databases allow you to look up information semantically" },
-//         { text: "so that you can build advanced LLM architectures like rag workflows" },
-//         { text: "like you know it is super cool stuff literally like magic ok" }
-//     ];
-
-//     console.log("\n--- STEP 1: EXECUTING TRANSCRIPT CLEANER ---");
-//     const cleanResult = cleanTranscript(mockRawTranscript);
-    
-//     if (!cleanResult.success) {
-//         console.error("❌ Cleaner Failed:", cleanResult.error);
-//         return;
-//     }
-//     console.log("✨ Cleaned Prose Output:", cleanResult.data);
-
-//     console.log("\n--- STEP 2: EXECUTING SEMANTIC SLIDING WINDOW ---");
-//     // We pass a hyper-small chunk size (50 characters) and overlap (15 characters)
-//     // so we can force the sliding loop to trigger multiple times on a short text.
-//     const chunkResult = chunkText(cleanResult.data, 50, 15);
-    
-//     if (!chunkResult.success) {
-//         console.error("❌ Chunking Failed:", chunkResult.error);
-//         return;
-//     }
-
-//     console.log("📊 Total Segments Generated:", chunkResult.data.length);
-//     console.log("📦 Final Chunk Array Blueprint:");
-//     console.log(JSON.stringify(chunkResult.data, null, 2));
-// }
-
-// // Execute the full pipeline test
-// runPipelineTest();

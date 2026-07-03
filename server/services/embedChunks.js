@@ -35,48 +35,9 @@ export async function embedChunks(chunks){  //if inside any fn is async then ove
         }
 
         let data = await res.json();
-        console.log(data.length);
-        console.log(data[0].length);
 
         return {success:true, data:data, error:null};
     }catch(err){
         return {success:false, data:null, error: err.message};
     }
 }
-
-
-// ==========================================
-// 🧪 HUGGING FACE INFERENCE PIPELINE TEST
-// ==========================================
-async function runDay5Test() {
-    console.log("📡 Initializing Hugging Face Vector Pipeline...");
-
-    // Simulating two semantic chunks generated from Day 3-4 splitting logic
-    const mockChunks = [
-        "vector embeddings allow backend databases to store semantic meaning rather than plain text strings",
-        "postgresql uses the pgvector extension to run low latency dot product and cosine similarity searches"
-    ];
-
-    console.log("Sending text chunks to all-MiniLM-L6-v2 model layers...");
-    const result = await embedChunks(mockChunks);
-
-    if (!result.success) {
-        console.error("❌ Vector Generation Failed:", result.error);
-        
-        // Helpful tip for initial Hugging Face connection spikes
-        if (result.error && result.error.includes("503")) {
-            console.log("💡 Tip: Hugging Face takes 20-30 seconds to download free models into VRAM on the first request. Wait a moment and run it again!");
-        }
-        return;
-    }
-
-    console.log("\n--- ✅ MODEL EXECUTION SUCCESSFUL ---");
-    console.log("Total Vector Records Returned (Should be 2):", result.data.length);
-    console.log("Vector Coordinates Per Chunk (Should be 384):", result.data[0].length);
-    
-    console.log("\n📊 Sample Coordinate Matrix Preview (First 5 Dimensions of Chunk 1):");
-    console.log(result.data[0].slice(0, 5), "... followed by 379 more dimensions!");
-}
-
-// Execute the embedding test
-runDay5Test();
