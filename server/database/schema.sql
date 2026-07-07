@@ -21,6 +21,8 @@ CREATE TABLE concepts (
   playlist_id VARCHAR(255) REFERENCES playlists(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
   description TEXT,
+  concept_embedding vector(384),  --Added later with help of supabase directly
+  sort_order 
   summary_markdown TEXT           -- Used later for cheat sheets
 );
 

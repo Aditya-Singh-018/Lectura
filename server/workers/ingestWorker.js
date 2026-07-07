@@ -10,6 +10,7 @@ import { cleanTranscript,chunkText } from "../services/chunkText.js";
 import { embedChunks } from "../services/embedChunks.js";
 import { extractConcepts } from "../services/extractConcepts.js";
 import { title } from "process";
+import {Graph} from "../services/buildGraphs.js";
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
@@ -112,8 +113,15 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
                     const matchingLlmConcept = concepts.find(c=>c.name === dbConcept.name);
                     if(matchingLlmConcept){
                         //lhs is a string, rhs is a number
-                        matchedDbConcepts.id = dbConcept.id;    //for duplicate concepts of same batch we used a reference above duirng filtering
-                        slugToPostgresIdMap[matchingLlmConcept.name] = dbConcept.id;
+                        slugToPostgresIdMap[matchingLlmConcept.id] = dbConcept.id;
+                    }
+                });
+
+                // Resolve local batch duplicates that pointed to an object instead of an integer ID
+                conceptsWithVectors.forEach(c => {
+                    if(slugToPostgresIdMap[c.id] && typeof slugToPostgresIdMap[c.id] === 'object'){
+                        const targetObj = slugToPostgresIdMap[c.id];
+                        slugToPostgresIdMap[c.id] = slugToPostgresIdMap[targetObj.id];
                     }
                 });
             }
@@ -130,6 +138,50 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
             if(prerequisitesError) throw prerequisitesError;
 
             console.log(`Knowledge graph synthesis finalized successfully.`);
+
+            //Topo Sort and Cycle Resolution
+            console.log("Starting Topological Sorting of concepts....");
+
+            //only fetch concept and edges for current playlist not the previous ones
+            const {data: currentConcepts} = await supabase
+            .from("concepts").select("id").eq("playlist_id",playlistId);
+
+            const {data: currentEdges} = await supabase
+            .from("concept_edges").select("source_concept_id,target_concept_id")
+            .eq("playlist_id",playlistId);
+
+            const conceptIds = currentConcepts.map(c => c.id);
+            const formattedEdges = currentEdges.map(e => ({
+                source_id: e.source_concept_id,
+                target_id: e.target_concept_id
+            }));
+
+            const sorter = new Graph(conceptIds, formattedEdges);     //new object of Graph class
+            const sortResult = sorter.topoSort();
+            const linearSequence = sortResult.sequence;
+
+            for (let i = 0; i < linearSequence.length; i++) {
+                const conceptId = linearSequence[i];
+                // Save the current index 'i' as the 'sort_order' for this concept
+                await supabase
+                    .from('concepts')
+                    .update({ sort_order: i })
+                    .eq('id', conceptId);
+            }
+
+            //Removing broken edge from the database
+            if(sortResult.mutated && sortResult.brokenEdges.length>0){
+                console.log("Cleaning up the database for broken edges...");
+                for(let i = 0; i < sortResult.brokenEdges.length; i++){
+                    const edge = sortResult.brokenEdges[i];  
+                    await supabase
+                        .from('concept_edges')
+                        .delete()
+                        .eq('source_concept_id', edge.source_id)
+                        .eq('target_concept_id', edge.target_id);
+                    console.log(`Deleted circular edge from DB: ${edge.source_id} ➔ ${edge.target_id}`);
+                }
+            }
 
             return { success: true, stage: "graph-extraction" };
 
