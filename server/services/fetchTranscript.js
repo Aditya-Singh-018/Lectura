@@ -42,7 +42,14 @@ export function checkYoutubeUrl(link){
 export async function fetchSingleVideoTranscript(videoId){
     try{
         const transcript = await YoutubeTranscript.fetchTranscript(videoId);
-        return {success:true,data:transcript,error:null};
+        let durationMinutes = 10;
+        if(transcript && transcript.length > 0){
+            const finalItem = transcript[transcript.length - 1];
+            // Total seconds = starting point offset + how many seconds the last text box was active
+            const totalSeconds = finalItem.offset + finalItem.duration;
+            durationMinutes = totalSeconds / 60;
+        }
+        return {success:true,data:{item:transcript,videoMinutes:durationMinutes},error:null};
     }
     catch(err){
         return {success:false,data:null,error:"Transcription Failed"};

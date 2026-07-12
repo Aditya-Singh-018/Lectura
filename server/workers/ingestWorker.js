@@ -11,6 +11,7 @@ import { embedChunks } from "../services/embedChunks.js";
 import { extractConcepts } from "../services/extractConcepts.js";
 import { title } from "process";
 import {Graph} from "../services/buildGraphs.js";
+import { generateQuestions } from "../services/generateQuestions.js";
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
@@ -33,8 +34,9 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
         
         //if the job is of concept extraction
         if(job.name == "extract-concepts"){
-            let {chunks,playlistId} = job.data;
-            const graphDataObj = await extractConcepts(chunks);
+            let {chunks,playlistId,videoId,videoMinutes} = job.data;
+            const maxConcepts = Math.min(Math.max(4, Math.floor(4+videoMinutes/3)),20);
+            const graphDataObj = await extractConcepts(chunks,maxConcepts);
             const concepts = graphDataObj.concepts;
             const prerequisites = graphDataObj.prerequisites;
             
@@ -97,6 +99,7 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
             let insertPayloadForConcepts = uniqueConcepts.map((concept,index)=>{
                 return{
                     playlist_id:playlistId,
+                    video_id: videoId,
                     name:concept.name,
                     concept_embedding: concept.concept_embedding,
                     description: concept.description,
@@ -129,6 +132,7 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
             let insertPayloadForPrerequisites = prerequisites.map((prerequisite,index)=>{
                 return{
                     playlist_id:playlistId,
+                    video_id: videoId,
                     source_concept_id:slugToPostgresIdMap[prerequisite.source],
                     target_concept_id:slugToPostgresIdMap[prerequisite.target],
                 };
@@ -144,11 +148,11 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
 
             //only fetch concept and edges for current playlist not the previous ones
             const {data: currentConcepts} = await supabase
-            .from("concepts").select("id").eq("playlist_id",playlistId);
+            .from("concepts").select("id").eq("video_id",videoId);
 
             const {data: currentEdges} = await supabase
             .from("concept_edges").select("source_concept_id,target_concept_id")
-            .eq("playlist_id",playlistId);
+            .eq("video_id",videoId);
 
             const conceptIds = currentConcepts.map(c => c.id);
             const formattedEdges = currentEdges.map(e => ({
@@ -182,9 +186,119 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
                     console.log(`Deleted circular edge from DB: ${edge.source_id} ➔ ${edge.target_id}`);
                 }
             }
+            await ingestQueue.add("generate-assessment", {
+                videoId: videoId
+            });
+
+            console.log(`[QUEUE] Successfully queued Stage 4 assessment generation for video: ${videoId}`);
 
             return { success: true, stage: "graph-extraction" };
 
+        }
+
+        if(job.name == "generate-assessment"){
+            const {videoId,unifiedTranscript} = job.data;
+            console.log(`[ASSESSMENT WORKER] Launching single-pass batch generation for video: ${videoId}`);
+            await job.updateProgress(10);
+
+            const {data: concepts,error: fetchError} =  await supabase
+            .from("concepts")
+            .select("id, name, description")
+            .eq("video_id",videoId)
+            .order("sort_order",{ascending:true});
+
+            if (fetchError || !concepts || concepts.length === 0) {
+                console.error(`[ASSESSMENT WORKER] Aborting. Failed to retrieve active graph nodes:`, fetchError);
+                throw new Error(fetchError.message || "No concepts found for assessment mapping");
+            }
+            await job.updateProgress(30);
+
+            const resultObj = await generateQuestions(concepts,unifiedTranscript);
+
+            if(!resultObj.success || !resultObj.assessments){
+                throw new Error("Bulk assessment matrix extraction failed or parsed incorrectly.");
+            }
+
+            // // 2. 🧠 THE FIXED STRATEGY: Loop through concepts item-by-item
+            // for (let index = 0; i < concepts.length; i++) {
+            //     const singleConcept = concepts[index];
+            //     console.log(`[ASSESSMENT WORKER] Processing concept (${index + 1}/${concepts.length}): ${singleConcept.name}`);
+
+            //     // Fetch a highly restricted subset of chunks linked to this specific video
+            //     // This acts as a tight sliding window to ensure your request stays around 2,000-4,000 tokens
+            //     const { data: textChunks, error: chunkError } = await supabase
+            //         .from("chunks")
+            //         .select("content")
+            //         .eq("video_id", videoId)
+            //         .limit(4); // 👈 TIGHT CONSTRAINT: Safely limits token usage well below the 12k TPM threshold
+
+            //     if (chunkError || !textChunks || textChunks.length === 0) {
+            //         console.warn(`[ASSESSMENT WORKER] No chunks found for video context window, skipping concept context.`);
+            //         continue;
+            //     }
+
+            //     const focusedContextText = textChunks.map(c => c.content).join("\n");
+
+            //     try {
+            //         // Send exactly ONE concept with its dedicated local text context per trip
+            //         const resultObj = await generateQuestions([singleConcept], focusedContextText);
+                    
+            //         if (resultObj && resultObj.assessments && resultObj.assessments.length > 0) {
+            //             finalAssessments.push(resultObj.assessments[0]);
+            //         }
+
+            //         // ⏱️ RATE LIMIT BREAKER: Insert a slight delay to allow the rolling TPM counter to reset
+            //         await new Promise((resolve) => setTimeout(resolve, 2000));
+
+            //     } catch (apiErr) {
+            //         console.error(`[GROQ API EXCEPTION] Failed processing concept ${singleConcept.id}:`, apiErr.message);
+            //         // Propagate the failure so the queue knows to try again later
+            //         throw apiErr; 
+            //     }
+            // }
+
+            await job.updateProgress(60);
+            console.log(`[ASSESSMENT WORKER] Structurally parsed ${resultObj.assessments.length} assessment blocks. Writing records...`);
+
+            for(const entry of resultObj.assessments){
+                const targetConceptId = entry.concept_id;
+                
+                const questionsPayload = entry.mcqs.map(m => {
+                const correctIndexPointer = m.options.findIndex(opt => opt.is_correct === true);
+
+                const rawDiff = m.difficulty;
+                let computedLevel = 1;
+                if (rawDiff === 2 || String(rawDiff).toLowerCase() === 'medium') {
+                    computedLevel = 2;
+                } else if (rawDiff === 3 || String(rawDiff).toLowerCase() === 'hard') {
+                    computedLevel = 3;
+                }
+                return{
+                    concept_id: targetConceptId,
+                    difficulty_level: computedLevel,
+                    question_text: m.question_text,
+                    options: JSON.stringify(m.options),
+                    correct_option: correctIndexPointer
+                };
+                });
+                const { error: questionInsertError } = await supabase
+                    .from("questions")
+                    .insert(questionsPayload);
+
+                if(questionInsertError){
+                    console.error(`[DATABASE ERROR] Failed writing questions for concept ${targetConceptId}:`, questionInsertError);
+                }
+                const Flashcard = entry.flashcards?.[0];
+                if(Flashcard){
+                    await supabase.from("flashcards").insert({
+                        concept_id: targetConceptId,
+                        front_text: Flashcard.front,
+                        back_text: Flashcard.back
+                    });
+                }
+            }
+            console.log("Everything is working fine!");
+            return { success: true, stage: "Question and flashcards generation" };
         }
 
         let urlAnalysis = checkYoutubeUrl(url);
@@ -236,7 +350,8 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
         //if worker is processing a single video
         
         let transcriptObj = await fetchSingleVideoTranscript(urlAnalysis.data.id);
-        let transcript = transcriptObj.data;
+        let transcript = transcriptObj.data.item;
+        let exactVideoMinutes = transcriptObj.data.videoMinutes;
         await job.updateProgress(40);
 
         let cleanedTextObj = cleanTranscript(transcript);
@@ -275,7 +390,12 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
             console.log(`Successfully indexed ${insertPayload.length} vectors into pgvector.`);
             console.log(`Ingestion pipeline completed for playlist: ${playlistId}. Dispatching concept extraction...`);
             await ingestQueue.add("extract-concepts",
-                {chunks:chunks,playlistId:playlistId},
+                {
+                    chunks:chunks,
+                    playlistId:playlistId,
+                    videoId:urlAnalysis.data.id,
+                    videoMinutes: exactVideoMinutes,
+                },
                 {attempts:3,backoff:{type:"exponential",delay:5000}});
 
             await job.updateProgress(100);
