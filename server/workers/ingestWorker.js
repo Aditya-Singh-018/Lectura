@@ -27,7 +27,7 @@ const connection = new IORedis(REDIS_URL,{maxRetriesPerRequest: null}); // Requi
 const ingestQueue = new Queue("youtube-ingestion",{connection});    //Queue creation
 
 const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker creation
-    const {url,playlistId} = job.data;
+    const {url,userId} = job.data;
     console.log(`Processing job with job id ${job.id} and url ${url}`);
     try{
         await job.updateProgress(10);
@@ -353,6 +353,14 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
         let transcript = transcriptObj.data.item;
         let exactVideoMinutes = transcriptObj.data.videoMinutes;
         await job.updateProgress(40);
+
+        //inserting videoId and userId in the database
+        const { error: videoDbError } = await supabase
+                .from('videos')
+                .insert({
+                    video_id:urlAnalysis.data.id, 
+                    user_id:userId
+                });
 
         let cleanedTextObj = cleanTranscript(transcript);
         let cleanedText = cleanedTextObj.data;

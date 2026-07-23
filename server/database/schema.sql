@@ -52,3 +52,14 @@ CREATE TABLE user_performance (
   is_correct BOOLEAN NOT NULL,
   last_attempted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+
+CREATE TABLE IF NOT EXISTS videos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    video_id VARCHAR(255) NOT NULL,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    
+    -- Ensure a user can map to the same video once, but different users can process it separately
+    CONSTRAINT unique_user_video UNIQUE(video_id, user_id)
+);

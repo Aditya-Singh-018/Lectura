@@ -3,10 +3,12 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 // import App from './App.jsx'
 import VideoIngestion from './components/VideoIngestion.jsx'
+import KnowledgeGraph from './components/KnowledgeGraph.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     {/* <App /> */}
-    <VideoIngestion></VideoIngestion>
+    {/* <VideoIngestion></VideoIngestion> */}
+    <KnowledgeGraph></KnowledgeGraph>
   </StrictMode>,
 )
