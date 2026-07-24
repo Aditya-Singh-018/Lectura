@@ -18,7 +18,7 @@ router.get("/adaptive-next",reqAuth,async (req,res)=>{
         }
 
         if(!userId){
-            return res.status(400).json({
+            return res.status(401).json({
                 success: false,
                 message: "Unauthorized User"
             });
@@ -26,9 +26,17 @@ router.get("/adaptive-next",reqAuth,async (req,res)=>{
 
         const nextQues = await selectNextQuestion(userId,videoId);
         if(!nextQues){
-            return res.status(400).json(nextQues);
+            return res.status(400).json({
+                success:true,
+                completed:true,
+                message:"Completed all the ques for this video!"
+            });
         }
-        return res.status(200).json(nextQues);
+        return res.status(200).json({
+            success: true,
+            completed: false,
+            data: nextQues
+        });
     }catch(error){
         console.error("GET /adaptive-next route crashed",error.stack);
 
@@ -45,7 +53,7 @@ router.post("/submit-choice",reqAuth,async (req,res) =>{
         const {questionId,selectedOption} = req.body;
         const userId = req.user?.id;
 
-        if(!questionId || !selectedOption){
+        if(!questionId || selectedOption == null || selectedOption == undefined){
             return res.status(400).json({
                 success: false,
                 message: "Missing body fields: Both questionId and selectedOptionIndex are mandatory."

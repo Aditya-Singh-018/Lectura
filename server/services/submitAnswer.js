@@ -1,5 +1,6 @@
 import path from "path";
 import dotenv from "dotenv";
+import { createClient } from "@supabase/supabase-js";
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
