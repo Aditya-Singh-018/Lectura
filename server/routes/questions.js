@@ -1,5 +1,5 @@
 import {Router} from "express";
-import {requireAuth} from "../middleware/authMiddleware.js";
+import {reqAuth} from "../middleware/authMiddleware.js";
 
 import { selectNextQuestion } from "../services/adaptiveEngine.js";
 import { submitAnswer } from "../services/submitAnswer.js";

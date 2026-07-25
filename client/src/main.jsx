@@ -5,12 +5,14 @@ import './index.css'
 import VideoIngestion from './components/VideoIngestion.jsx'
 import KnowledgeGraph from './components/KnowledgeGraph.jsx'
 import AdaptiveQuiz from './components/AdaptiveQuiz.jsx'
+import UserProfile from './components/UserProfile.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     {/* <App /> */}
     {/* <VideoIngestion></VideoIngestion> */}
     {/* <KnowledgeGraph></KnowledgeGraph> */}
-    <AdaptiveQuiz></AdaptiveQuiz>
+    {/* <AdaptiveQuiz></AdaptiveQuiz> */}
+    <UserProfile></UserProfile>
   </StrictMode>,
 )

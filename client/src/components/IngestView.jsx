@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function VideoIngestion() {
+export default function IngestView() {
   const [url, setUrl] = useState('');
   const [status, setStatus] = useState('idle'); // 'idle' | 'submitting' | 'processing' | 'success' | 'error'
   const [errorMessage, setErrorMessage] = useState('');

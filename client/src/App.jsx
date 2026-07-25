@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';    //named export's import
 import { supabase } from './supabaseClient';
+
 import IngestView from './components/IngestView';   //default export's import
 import DashboardShell from './components/DashboardShell';
 import SignUpForm from './components/SignUpForm';
 import LoginForm from './components/LoginForm';
+import KnowledgeGraph from "./components/KnowledgeGraphDashboard";
+import AdaptiveQuiz from "./components/AdaptiveQuiz";
+import UserProfile from './components/UserProfile';
 
 function App(){
   const [user, setUser] = useState(null);
