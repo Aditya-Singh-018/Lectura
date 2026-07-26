@@ -2,16 +2,16 @@ import { useState, useEffect } from 'react';    //named export's import
 import { supabase } from './supabaseClient';
 
 import IngestView from './components/IngestView';   //default export's import
-import DashboardShell from './components/DashboardShell';
-import SignUpForm from './components/SignUpForm';
-import LoginForm from './components/LoginForm';
-import KnowledgeGraph from "./components/KnowledgeGraphDashboard";
+import KnowledgeGraphDashboard from "./components/KnowledgeGraphDashboard";
 import AdaptiveQuiz from "./components/AdaptiveQuiz";
 import UserProfile from './components/UserProfile';
+
+import DashboardShell from './components/DashboardShell';
 
 function App(){
   const [user, setUser] = useState(null);
   const [currentView, setCurrentView] = useState('ingest'); // Default view
+  const [activeVideoId, setActiveVideoId] = useState(null);
   const [loading, setLoading] = useState(true);   //initially start loading
   const [authMode, setAuthMode] = useState('login'); // Starts window display at login card profile
 
@@ -24,6 +24,7 @@ function App(){
         if(session) setUser(session.user);    //if session id exists then set the user and ...
         else{
           const {data:{user}, error } = await supabase.auth.signInAnonymously();
+          if(error) throw error;
           console.log(user);
           setUser(user);
         }
@@ -31,9 +32,8 @@ function App(){
       }catch(error){
         console.log("User Authentication Error",error.stack);
       }
-    }
+    };
     initializeAuth();
-  },[]);
 
     // Hidden worker catches returning sessions, manual logins, and logouts
     const{ data: {subscription}} = supabase.auth.onAuthStateChange((event, session) =>{
@@ -44,8 +44,18 @@ function App(){
         setCurrentView('ingest'); // Reset to entry screen on session close
       }
       setLoading(false);
+    });
     return () => subscription.unsubscribe();  //this function sits inside subscription obj
   }, []);
+
+  const handleVideoProcessed = (videoId) => {
+    setActiveVideoId(videoId);
+    setCurrentView('graph'); // Automatically jump to Knowledge Graph
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
 
   if(loading){
     return (
@@ -55,29 +65,40 @@ function App(){
     );
   }
 
-  if(currentView == "ingest"){
-    return(
-      <IngestView user = {user} onNavigate = {setCurrentView}></IngestView> //onNavigat is a prop para
-    );
-  }
-
-  if(currentView == "quiz"){
-    return(
-      <Quiz user = {user} onNavigate = {setCurrentView}></Quiz> //onNavigate -> part of lifting state up
-    )
-  }
-
-  if(currentView == "graph" || currentView == "dashboard"){
-    if(!user || user.is_anonymous){
-      return <IngestView user = {user} onNavigate = {setCurrentView}></IngestView>
-    }
-  }
-  return(
+  return (
     <DashboardShell 
       user={user} 
       currentView={currentView} 
-      onNavigate={setCurrentView} 
-    />
+      onNavigate={setCurrentView}
+      activeVideoId={activeVideoId}
+    >
+      {currentView === 'ingest' && (
+        <IngestView 
+          user={user} 
+          onNavigate={setCurrentView} 
+          onVideoProcessed={handleVideoProcessed} 
+        />
+      )}
+
+      {currentView === 'graph' && (
+        <KnowledgeGraphDashboard 
+          videoId={activeVideoId} 
+          onStartQuiz={() => setCurrentView('quiz')} 
+          onNavigate={setCurrentView}
+        />
+      )}
+
+      {currentView === 'quiz' && (
+        <AdaptiveQuiz 
+          videoId={activeVideoId} 
+          onNavigate={setCurrentView} 
+        />
+      )}
+
+      {(currentView === 'profile' || currentView === 'dashboard') && (
+        <UserProfile user={user} />
+      )}
+    </DashboardShell>
   );
 }
 

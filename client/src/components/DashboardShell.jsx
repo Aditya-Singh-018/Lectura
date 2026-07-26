@@ -2,22 +2,35 @@ import { useState } from 'react';
 import LoginForm from './LoginForm';
 import SignUpForm from './SignUpForm';
 
-function DashboardShell({ user, currentView, onNavigate, onSignOut }) {
-  const [isOpen, setIsOpen] = useState(false);  //for mobile dropDown
+function DashboardShell({ user, currentView, onNavigate, onSignOut, activeVideoId, children }) {
+  const [isOpen, setIsOpen] = useState(false); // Mobile dropdown toggle
 
   return (
-    <div className="min-h-screen w-screen flex flex-col bg-slate-950 text-slate-100 overflow-x-hidden">
+    <div className="min-h-screen w-screen flex flex-col bg-slate-950 text-slate-100 overflow-x-hidden font-sans">
       
       {/* GLOBAL HEADER BAR */}
       <nav className="fixed top-0 left-0 w-full h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 z-50">
         
         {/* Logo / Brand Alignment */}
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => onNavigate('ingest')}>
-          <span className="text-sm font-bold bg-blue-600 px-2 py-1 rounded-md text-white font-mono">L</span>
-          <span className="text-md font-bold text-white tracking-tight">Lectura</span>
+        <div className="flex items-center gap-3">
+          <div 
+            className="flex items-center gap-2 cursor-pointer" 
+            onClick={() => onNavigate('ingest')}
+          >
+            <span className="text-sm font-bold bg-blue-600 px-2 py-1 rounded-md text-white font-mono shadow-md">L</span>
+            <span className="text-md font-bold text-white tracking-tight">Lectura</span>
+          </div>
+
+          {/* Active Context Badge */}
+          {activeVideoId && (
+            <span className="hidden lg:inline-flex items-center gap-1.5 ml-4 px-2.5 py-0.5 bg-emerald-950/60 text-emerald-400 text-[11px] font-mono rounded-full border border-emerald-800/60">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Active: {activeVideoId}
+            </span>
+          )}
         </div>
 
-        {/* UNIFIED DESKTOP NAVIGATION TRACK (Hidden on mobile viewports natively) */}
+        {/* UNIFIED DESKTOP NAVIGATION TRACK */}
         <div className="hidden md:flex items-center gap-3">
           <button 
             onClick={() => onNavigate('ingest')}
@@ -25,12 +38,14 @@ function DashboardShell({ user, currentView, onNavigate, onSignOut }) {
           >
             Home Pipeline
           </button>
+          
           <button 
             onClick={() => onNavigate('graph')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer ${currentView === 'graph' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
           >
             Knowledge Graph
           </button>
+          
           <button 
             onClick={() => onNavigate('quiz')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer ${currentView === 'quiz' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
@@ -38,7 +53,14 @@ function DashboardShell({ user, currentView, onNavigate, onSignOut }) {
             Adaptive Testing
           </button>
 
-          {/* DYNAMIC RIGHT-HAND AUTH BLOCKS (Nested safely inside desktop container tracker) */}
+          <button 
+            onClick={() => onNavigate('profile')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer ${(currentView === 'profile' || currentView === 'dashboard') ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+          >
+            User Profile
+          </button>
+
+          {/* DYNAMIC RIGHT-HAND AUTH BLOCKS */}
           <div className="flex items-center gap-3 border-l border-slate-800 pl-4 ml-2">
             {user?.is_anonymous ? (
               <div className="flex items-center gap-2">
@@ -84,7 +106,7 @@ function DashboardShell({ user, currentView, onNavigate, onSignOut }) {
         </div>
       </nav>
 
-      {/* MOBILE DRILL-DOWN DROPDOWN DRAWER VIEWPORT BOX */}
+      {/* MOBILE DRILL-DOWN DROPDOWN DRAWER */}
       {isOpen && (
         <div className="md:hidden fixed top-16 left-0 w-full bg-slate-900 border-b border-slate-800 p-4 space-y-1.5 z-40 flex flex-col animate-fadeIn">
           <button 
@@ -105,8 +127,14 @@ function DashboardShell({ user, currentView, onNavigate, onSignOut }) {
           >
             Adaptive Testing
           </button>
+          <button 
+            onClick={() => { onNavigate('profile'); setIsOpen(false); }}
+            className="w-full text-left px-3 py-2 rounded-md hover:bg-slate-800 text-slate-300 text-xs font-semibold"
+          >
+            User Profile
+          </button>
           
-          {/* Mobile Auth Flow Option Triggers */}
+          {/* Mobile Auth Triggers */}
           {user?.is_anonymous ? (
             <div className="pt-2 border-t border-slate-800 flex flex-col space-y-1.5">
               <button 
@@ -134,24 +162,24 @@ function DashboardShell({ user, currentView, onNavigate, onSignOut }) {
       )}
 
       {/* DYNAMIC CENTRAL WORKSPACE CANVAS AREA */}
-      <main className="flex-1 pt-16 w-full max-w-7xl mx-auto p-4 md:p-8 flex flex-col justify-center items-center">
-        {currentView === 'graph' && <div className="text-white">Graph Viewport Placeholder</div>}
-        {currentView === 'dashboard' && <div className="text-white">Dashboard Viewport Placeholder</div>}
-        {currentView === 'quiz' && <div className="text-white">Quiz Viewport Placeholder</div>}
-        
+      <main className="flex-1 pt-20 w-full max-w-7xl mx-auto p-4 md:p-8 flex flex-col justify-start">
+        {/* Render auth forms when in login/signup mode */}
         {currentView === 'login' && (
-          <div className="w-full max-w-md mx-auto bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl">
+          <div className="w-full max-w-md mx-auto my-auto bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl">
             <h2 className="text-xl font-bold mb-4 text-white">Welcome Back</h2>
             <LoginForm />
           </div>
         )}
 
         {currentView === 'signup' && (
-          <div className="w-full max-w-md mx-auto bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl">
+          <div className="w-full max-w-md mx-auto my-auto bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl">
             <h2 className="text-xl font-bold mb-4 text-white">Upgrade Session</h2>
             <SignUpForm />
           </div>
         )}
+
+        {/* Render child view component when in standard app views */}
+        {currentView !== 'login' && currentView !== 'signup' && children}
       </main>
     </div>
   );

@@ -1,18 +1,18 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-// import App from './App.jsx'
-import VideoIngestion from './components/VideoIngestion.jsx'
-import KnowledgeGraph from './components/KnowledgeGraph.jsx'
-import AdaptiveQuiz from './components/AdaptiveQuiz.jsx'
-import UserProfile from './components/UserProfile.jsx'
+import App from './App.jsx'
+// import VideoIngestion from './components/VideoIngestion.jsx'
+// import KnowledgeGraph from './components/KnowledgeGraph.jsx'
+// import AdaptiveQuiz from './components/AdaptiveQuiz.jsx'
+// import UserProfile from './components/UserProfile.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    {/* <App /> */}
+    <App />
     {/* <VideoIngestion></VideoIngestion> */}
     {/* <KnowledgeGraph></KnowledgeGraph> */}
     {/* <AdaptiveQuiz></AdaptiveQuiz> */}
-    <UserProfile></UserProfile>
+    {/* <UserProfile></UserProfile> */}
   </StrictMode>,
 )

@@ -1,5 +1,5 @@
 import express from "express";
-import { extractConcepts } from "../services/extractConcepts";
+import { extractConcepts } from "../services/extractConcepts.js";
 
 
 const router = express.Router();

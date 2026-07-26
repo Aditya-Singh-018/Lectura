@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../supabaseClient";
 
-function LoginForm(){
+export default function LoginForm(){
     const [formData,setFormData] = useState({email:"",password:""});
 
     const handleInputChange = (event) =>{
