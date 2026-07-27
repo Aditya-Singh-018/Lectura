@@ -12,6 +12,7 @@ import { extractConcepts } from "../services/extractConcepts.js";
 import { title } from "process";
 import {Graph} from "../services/buildGraphs.js";
 import { generateQuestions } from "../services/generateQuestions.js";
+import { updateVideoStatus } from "../services/updateVideoStatus.js";
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
@@ -34,11 +35,18 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
         
         //if the job is of concept extraction
         if(job.name == "extract-concepts"){
-            let {chunks,playlistId,videoId,videoMinutes} = job.data;
+            let {chunks,videoId,videoMinutes} = job.data;
             const maxConcepts = Math.min(Math.max(4, Math.floor(4+videoMinutes/3)),20);
             const graphDataObj = await extractConcepts(chunks,maxConcepts);
             const concepts = graphDataObj.concepts;
             const prerequisites = graphDataObj.prerequisites;
+
+            await updateVideoStatus(
+                videoId,
+                85,
+                "processing",
+                "extract"
+            );
             
             //Deduplicate Concepts
             const conceptNames = concepts.map(c => c.name);
@@ -53,6 +61,8 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
                     concept_embedding: conceptEmbeddings[index] // matched by index!
                 };
             });
+
+
 
             const formattedStringVectors = conceptEmbeddings.map(vec => `[${vec.join(',')}]`);
             //finding matched concepts so that we can merge easily , the similar concepts
@@ -82,6 +92,14 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
                     }
                 }
                 if(skipInsertion) continue;
+
+                await updateVideoStatus(
+                    videoId,
+                    88,
+                    "processing",
+                    "dedup"
+                );
+
                 for(let concept of uniqueConcepts){
                     let score = similarity(c.concept_embedding,concept.concept_embedding);
                     if(score>0.85){
@@ -98,7 +116,6 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
 
             let insertPayloadForConcepts = uniqueConcepts.map((concept,index)=>{
                 return{
-                    playlist_id:playlistId,
                     video_id: videoId,
                     name:concept.name,
                     concept_embedding: concept.concept_embedding,
@@ -131,15 +148,19 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
 
             let insertPayloadForPrerequisites = prerequisites.map((prerequisite,index)=>{
                 return{
-                    playlist_id:playlistId,
                     video_id: videoId,
                     source_concept_id:slugToPostgresIdMap[prerequisite.source],
                     target_concept_id:slugToPostgresIdMap[prerequisite.target],
                 };
             }).filter(edge => edge.source_concept_id !== undefined && edge.target_concept_id !== undefined);
             //this above line is a extra safety check which is added to filter out only non undefined key value pairs
-            const {data:insertedPrerequisites, error:prerequisitesError} = await supabase.from('concept_edges').insert(insertPayloadForPrerequisites);
-            if(prerequisitesError) throw prerequisitesError;
+            if(insertPayloadForPrerequisites.length>0){
+                const {error:prerequisitesError}=await supabase
+                .from('concept_edges')
+                .insert(insertPayloadForPrerequisites);
+
+                if(prerequisitesError) throw prerequisitesError;
+            }
 
             console.log(`Knowledge graph synthesis finalized successfully.`);
 
@@ -163,6 +184,13 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
             const sorter = new Graph(conceptIds, formattedEdges);     //new object of Graph class
             const sortResult = sorter.topoSort();
             const linearSequence = sortResult.sequence;
+
+            await updateVideoStatus(
+                videoId,
+                92,
+                "processing",
+                "sort"
+            );
 
             for (let i = 0; i < linearSequence.length; i++) {
                 const conceptId = linearSequence[i];
@@ -200,6 +228,13 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
             const {videoId,unifiedTranscript} = job.data;
             console.log(`[ASSESSMENT WORKER] Launching single-pass batch generation for video: ${videoId}`);
             await job.updateProgress(10);
+
+            await updateVideoStatus(
+                videoId,
+                95,
+                "processing",
+                "assessment"
+            );
 
             const {data: concepts,error: fetchError} =  await supabase
             .from("concepts")
@@ -297,6 +332,13 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
                     });
                 }
             }
+            await updateVideoStatus(
+                videoId,
+                100,
+                "success",
+                "completed"
+            );
+
             console.log("Everything is working fine!");
             return { success: true, stage: "Question and flashcards generation" };
         }
@@ -348,19 +390,31 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
         }
 
         //if worker is processing a single video
+
+        //inserting videoId and userId in the database
+        const { error: videoDbError } = await supabase
+                .from('videos')
+                .upsert({
+                    video_id:urlAnalysis.data.id,
+                    user_id:userId,
+                    progress:0,
+                    status:"processing",
+                    current_stage:"fetch"
+                });
+
+        if(videoDbError) throw videoDbError;
         
         let transcriptObj = await fetchSingleVideoTranscript(urlAnalysis.data.id);
         let transcript = transcriptObj.data.item;
         let exactVideoMinutes = transcriptObj.data.videoMinutes;
         await job.updateProgress(40);
 
-        //inserting videoId and userId in the database
-        const { error: videoDbError } = await supabase
-                .from('videos')
-                .insert({
-                    video_id:urlAnalysis.data.id, 
-                    user_id:userId
-                });
+        await updateVideoStatus(
+            urlAnalysis.data.id,
+            40,
+            "processing",
+            "fetch"
+        );
 
         let cleanedTextObj = cleanTranscript(transcript);
         let cleanedText = cleanedTextObj.data;
@@ -370,15 +424,29 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
         let chunks = chunksObj.data;
         await job.updateProgress(70);
 
+        await updateVideoStatus(
+            urlAnalysis.data.id,
+            70,
+            "processing",
+            "chunk"
+        );
+
         let embedVectorObj = await embedChunks(chunks);
         let embedVector = embedVectorObj.data;
         await job.updateProgress(80);
+
+        await updateVideoStatus(
+            urlAnalysis.data.id,
+            80,
+            "processing",
+            "vectorize"
+        );
 
         console.log(`Writing vectors and relational text segments to Supabase...`);
         try{
             let insertPayload = chunks.map((chunkText,index)=>{
                 return{
-                    playlist_id:playlistId||null,   //this playlist id for single video will be fetched from the first line of this function (see at top)
+                    //playlist_id:playlistId||null,   //this playlist id for single video will be fetched from the first line of this function (see at top)
                     video_id:urlAnalysis.data.id,
                     content:chunkText,
                     start_time:0,
@@ -396,11 +464,10 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
                 //throw new Error(`Supabase Vector Insertion Failed: ${error.message}`);
             }
             console.log(`Successfully indexed ${insertPayload.length} vectors into pgvector.`);
-            console.log(`Ingestion pipeline completed for playlist: ${playlistId}. Dispatching concept extraction...`);
+            console.log(`Ingestion pipeline completed for video: ${urlAnalysis.data.id}. Dispatching concept extraction...`);
             await ingestQueue.add("extract-concepts",
                 {
                     chunks:chunks,
-                    playlistId:playlistId,
                     videoId:urlAnalysis.data.id,
                     videoMinutes: exactVideoMinutes,
                 },
@@ -418,6 +485,15 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
     }catch(error){
         console.error(`[CRITICAL WORKER FAILURE] Job ID ${job.id} failed!`);
         console.error(error.stack || error);    //this is for out debugging
+
+        if(job.data.videoId){
+            await updateVideoStatus(
+                job.data.videoId,
+                0,
+                "error",
+                ""
+            );
+        }
         throw new Error(`Worker failed: ${error.message}`); //we're throwing the error again so that the bullMQ catches it again inside BullMQ's internal execution engine.
         //so that it may be notified that the job wasn't finished.
     }

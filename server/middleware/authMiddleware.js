@@ -15,7 +15,7 @@ export async function reqAuth(req, res, next){
         //Extracting authorization headers
         const authHeader = req.headers.authorization;
 
-        if(!authHeader || !authHeader.startswith('Bearer ')){
+        if(!authHeader || !authHeader.startsWith('Bearer ')){
             return res.status(401).json({
                 success: false,
                 message: 'Unauthorized: Missing or malformed Bearer token.'
@@ -50,11 +50,11 @@ export async function reqAuth(req, res, next){
         //Passing control to the next handler route
         next(); //Passing execution to next middleware
     }catch(error){
-        console.error('[AUTH MIDDLEWARE CRASH]:', err);
+        console.error('[AUTH MIDDLEWARE CRASH]:', error);
         return res.status(500).json({
             success: false,
             message: 'Internal server error verifying user authorization.',
-            error: err.message
+            error: error.message
         });
     }
 }

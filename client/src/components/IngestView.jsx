@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { supabase } from '../supabaseClient';
 
 export default function IngestView() {
   const [url, setUrl] = useState('');
@@ -30,11 +31,13 @@ export default function IngestView() {
     setErrorMessage("");
 
     //Event Source Tracker
+    const {data:{session}} = await supabase.auth.getSession();
     try{
         const responce = await fetch("/api/ingest",{
             method:"POST",
             headers:{
-                "Content-Type":"application/json"
+                "Content-Type":"application/json",
+                'Authorization': `Bearer ${session.access_token}`
             },
             body:JSON.stringify({url})
         });
@@ -60,29 +63,33 @@ export default function IngestView() {
             }
 
             // Checkpoint B: Final Assessment generation complete
-            if(payload.status === 'completed_all'){
+            if(payload.status === "success"){
                 setSteps(prevSteps => prevSteps.map(item => ({ ...item, status: 'complete' })));
                 setStatus("success");
                 setUrl(""); // Clear out form bar input text safely
                 es.close(); // Cut stream connection to avoid browser memory leaks
                 return;
             }
-
-            setSteps(prevSteps =>
-                prevSteps.map(step => {
-                if(step.id === payload.stepId) {
-                    return { ...step, status: payload.status }; // updates target node to 'active' or 'complete'
-                }
-                return step;
-                })
-            );
-        }
+            
+            const STEP_ORDER = ['fetch', 'chunk', 'vectorize', 'extract', 'dedup', 'sort', 'assessment'];
+            const activeIndex = STEP_ORDER.indexOf(payload.current_stage);
+            setSteps(prevSteps => prevSteps.map((step, i) => {
+                const stepIndex = STEP_ORDER.indexOf(step.id);
+                if (stepIndex < activeIndex) return { ...step, status: 'complete' };
+                if (stepIndex === activeIndex) return { ...step, status: 'active' };
+                return { ...step, status: 'pending' };
+            }));
+        };
 
         es.onerror = (err) => {     //this SS event listeners fires up when an errors occurs
-        console.error("SSE Connection Error:", err);
-        setStatus("error");
-        setErrorMessage("Lost active streaming context connection to server infrastructure.");
-        es.close();
+          if(status == "success"){
+            es.close();
+            return;
+          }
+          console.error("SSE Connection Error:", err);
+          setStatus("error");
+          setErrorMessage("Lost active streaming context connection to server infrastructure.");
+          es.close();
         };
 
     }catch(error){
