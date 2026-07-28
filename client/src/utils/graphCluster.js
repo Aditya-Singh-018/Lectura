@@ -20,7 +20,7 @@ export function groupIntoConnectedComponents(concepts = [],edges = []){
     const visited = new Set();
     const clusters = [];
 
-    concepts.forEach((concepts)=>{
+    concepts.forEach((concept)=>{
         if(!visited.has(concept.id)){   //Multi source BFS for connected components
             const clusterConceptIds = new Set();
             const queue = [concept.id];

@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { groupIntoConnectedComponents } from '../utils/graphCluster.js';
+import { supabase } from '../supabaseClient';
 
 
-export default function KnowledgeGraphDashboard() {
+// Bug Fix #3: Accept videoId prop from App.jsx so navigating from IngestView
+//             auto-selects the just-processed video instead of defaulting to Global.
+export default function KnowledgeGraphDashboard({ videoId: initialVideoId = null, onStartQuiz, onNavigate }) {
   // State elements
   const [videos, setVideos] = useState([]);
-  const [activeVideoId, setActiveVideoId] = useState(null); // default to Global view
+  const [activeVideoId, setActiveVideoId] = useState(initialVideoId); // seeded from prop
   const [graphData, setGraphData] = useState({ concepts: [], edges: [] });
   const [selectedConcept, setSelectedConcept] = useState(null);
   const [edgesWithCoordinates, setEdgesWithCoordinates] = useState([]);
@@ -17,7 +20,11 @@ export default function KnowledgeGraphDashboard() {
   useEffect(()=>{
     async function fetchUserVideos(){
       try{
-        const res = await fetch("api/videos");
+        // Bug Fix #1: All backend routes use reqAuth middleware → must send Bearer token
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch("/api/videos", {
+          headers: { 'Authorization': `Bearer ${session?.access_token}` }
+        });
         const data = await res.json();
         if(data.videos){
           setVideos(data.videos);
@@ -33,17 +40,25 @@ export default function KnowledgeGraphDashboard() {
     async function fetchGraphData(){
       setLoading(true);
       try{
-        const endpoint = activeVideoId?
-        `api/graph/video/${activeVideoId}`:`api/graph`;
+        // Bug Fix #1: send auth header — backend requires Bearer token on all /api/graph routes
+        const { data: { session } } = await supabase.auth.getSession();
+        const endpoint = activeVideoId
+          ? `/api/graph/video/${activeVideoId}`
+          : `/api/graph`;
 
-        const res = await fetch(endpoint);
+        const res = await fetch(endpoint, {
+          headers: { 'Authorization': `Bearer ${session?.access_token}` }
+        });
         const data = await res.json();
         setGraphData({
-          concepts:data.concepts || [],
-          edges:data.edges || []
+          concepts: data.concepts || [],
+          edges: data.edges || []
         });
       }catch(error){
         console.error("Failed to fetch graph data ",error);
+      }finally{
+        // Bug Fix #2: setLoading(false) was missing — spinner never cleared after data arrived
+        setLoading(false);
       }
     }
     fetchGraphData();
@@ -186,9 +201,9 @@ function ClusterIsland({clusterIndex,concepts,edges,selectedConcept, onSelectCon
         const tgtRect = tgtEl.getBoundingClientRect();  //rendering target rectangle
 
         computedLines.push({
-          id: `${srcId}-${tgtId}`,
+          id: `${srcId}-${targetId}`,
           srcId,
-          tgtId,
+          targetId,
           x1: srcRect.right - containerRect.left,
           y1: srcRect.top + srcRect.height / 2 - containerRect.top,
           x2: tgtRect.left - containerRect.left,
@@ -229,7 +244,8 @@ function ClusterIsland({clusterIndex,concepts,edges,selectedConcept, onSelectCon
             </marker>
           </defs>
           {lines.map((line) => {
-            const isActive = selectedConcept?.id === line.tgtId || selectedConcept?.id === line.srcId;
+            // Bug Fix #4: line object uses `targetId` not `tgtId` — arrow highlights were never activating
+            const isActive = selectedConcept?.id === line.targetId || selectedConcept?.id === line.srcId;
             const controlX = line.x1 + (line.x2 - line.x1) / 2;
             return (
               <path

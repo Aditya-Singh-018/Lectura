@@ -1,11 +1,23 @@
 import express from "express";
 import { extractConcepts } from "../services/extractConcepts.js";
+import { reqAuth } from "../middleware/authMiddleware.js";
+
+import path from "path";
+import dotenv from "dotenv";
+import { createClient } from "@supabase/supabase-js";
+
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 
 const router = express.Router();
 
 //route to fetch knowledge graph for single video
-router.get("/graph/video/:videoId",async (req,res)=>{
+router.get("/graph/video/:videoId",reqAuth,async (req,res)=>{
     const {videoId} = req.params;
     const userId = req.user.id;
 
@@ -54,7 +66,7 @@ router.get("/graph/video/:videoId",async (req,res)=>{
 });
 
 //router to fetch knowledge graph for complete user's history
-router.get("/graph/",async(req,res) =>{
+router.get("/graph",reqAuth,async(req,res) =>{
     const userId = req.user.id;
 
     try{
@@ -89,7 +101,7 @@ router.get("/graph/",async(req,res) =>{
 });
 
 //router to fetch all the videos for a user
-router.get("/videos",async (req,res)=>{
+router.get("/videos",reqAuth,async (req,res)=>{
     try{
         const userId = req.user.id; //This comes from authentication middleware
 
