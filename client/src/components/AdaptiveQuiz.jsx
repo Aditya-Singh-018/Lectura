@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 
 export default function AdaptiveQuiz({ videoId }) {
   const [currentQuestion, setCurrentQuestion] = useState(null);
@@ -18,9 +19,10 @@ export default function AdaptiveQuiz({ videoId }) {
     setFeedback(null);
     setSelectedOption(null);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(`/api/adaptive-next?videoId=${videoId}`,{
         headers:{
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${session?.access_token}`
         }
       });
       const data = await res.json();
@@ -28,7 +30,16 @@ export default function AdaptiveQuiz({ videoId }) {
       if(data.completed) {
         setIsCompleted(true);
       } else {
-        setCurrentQuestion(data.question);
+        if(data.data?.question){
+          const rawOptions = data.data.question.options;
+          // Parse stringified options from database if necessary
+          const parsedOptions = typeof rawOptions === 'string' ? JSON.parse(rawOptions) : rawOptions;
+          setCurrentQuestion({
+            ...data.data.question,
+            concept_title:data.data.concept_name,
+            options: parsedOptions,
+          })
+        }
       }
     } catch (err) {
       console.error("Error fetching next question:", err);
@@ -43,11 +54,12 @@ export default function AdaptiveQuiz({ videoId }) {
     setSubmitting(true);
 
     try {
+        const { data: { session } } = await supabase.auth.getSession();
         const res = await fetch('/api/submit-choice', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${session?.access_token}`
             },
             body: JSON.stringify({
                 questionId: currentQuestion.id,
@@ -97,7 +109,7 @@ export default function AdaptiveQuiz({ videoId }) {
 
           // Reveal correct/incorrect styling post-submission
           if (feedback) {
-            if (idx === feedback.correctOptionId) style = "border-emerald-500 bg-emerald-50 text-emerald-900";
+            if (idx === feedback.correctOptionIndex) style = "border-emerald-500 bg-emerald-50 text-emerald-900";
             else if (selectedOption === idx && !feedback.isCorrect) style = "border-rose-500 bg-rose-50 text-rose-900";
           }
 
@@ -125,7 +137,7 @@ export default function AdaptiveQuiz({ videoId }) {
       {/* Action Controls */}
       {!feedback ? (
         <button
-          disabled={!selectedOption || submitting}
+          disabled={selectedOption === null || submitting}
           onClick={handleSubmitChoice}
           className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50"
         >

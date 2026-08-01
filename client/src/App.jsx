@@ -5,6 +5,7 @@ import IngestView from './components/IngestView';   //default export's import
 import KnowledgeGraphDashboard from "./components/KnowledgeGraphDashboard";
 import AdaptiveQuiz from "./components/AdaptiveQuiz";
 import UserProfile from './components/UserProfile';
+import LecturesView from './components/LecturesView'; 
 
 import DashboardShell from './components/DashboardShell';
 
@@ -57,6 +58,15 @@ function App(){
     await supabase.auth.signOut();
   };
 
+  const handleSelectGraph = (videoId) => {
+    setActiveVideoId(videoId);
+    setCurrentView('graph');
+  };
+  const handleSelectQuiz = (videoId) => {
+    setActiveVideoId(videoId);
+    setCurrentView('quiz');
+  };
+
   if(loading){
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-slate-950 text-slate-400 font-mono text-xs">
@@ -77,6 +87,13 @@ function App(){
           user={user} 
           onNavigate={setCurrentView} 
           onVideoProcessed={handleVideoProcessed} 
+        />
+      )}
+
+      {currentView === 'lectures' && (
+        <LecturesView 
+          onSelectGraph={handleSelectGraph} 
+          onSelectQuiz={handleSelectQuiz} 
         />
       )}
 

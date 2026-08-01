@@ -6,10 +6,10 @@ function DashboardShell({ user, currentView, onNavigate, onSignOut, activeVideoI
   const [isOpen, setIsOpen] = useState(false); // Mobile dropdown toggle
 
   return (
-    <div className="min-h-screen w-screen flex flex-col bg-slate-950 text-slate-100 overflow-x-hidden font-sans">
+    <div className="min-h-screen w-screen flex flex-col bg-slate-50 text-slate-900 overflow-x-hidden font-sans">
       
       {/* GLOBAL HEADER BAR */}
-      <nav className="fixed top-0 left-0 w-full h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 z-50">
+      <nav className="fixed top-0 left-0 w-full h-16 bg-gradient-to-r from-blue-600 to-indigo-600 border-b border-indigo-700 flex items-center justify-between px-6 z-50">
         
         {/* Logo / Brand Alignment */}
         <div className="flex items-center gap-3">
@@ -17,7 +17,7 @@ function DashboardShell({ user, currentView, onNavigate, onSignOut, activeVideoI
             className="flex items-center gap-2 cursor-pointer" 
             onClick={() => onNavigate('ingest')}
           >
-            <span className="text-sm font-bold bg-blue-600 px-2 py-1 rounded-md text-white font-mono shadow-md">L</span>
+            <span className="text-sm font-bold bg-white/20 px-2 py-1 rounded-md text-white font-mono shadow-md">L</span>
             <span className="text-md font-bold text-white tracking-tight">Lectura</span>
           </div>
 
@@ -34,57 +34,52 @@ function DashboardShell({ user, currentView, onNavigate, onSignOut, activeVideoI
         <div className="hidden md:flex items-center gap-3">
           <button 
             onClick={() => onNavigate('ingest')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer ${currentView === 'ingest' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer ${currentView === 'ingest' ? 'bg-white/20 text-white shadow-md' : 'text-blue-100 hover:text-white hover:bg-white/15'}`}
           >
             Home Pipeline
           </button>
           
           <button 
-            onClick={() => onNavigate('graph')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer ${currentView === 'graph' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+            onClick={() => onNavigate('lectures')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer ${
+              currentView === 'lectures' ? 'bg-white/20 text-white shadow-md' : 'text-blue-100 hover:text-white hover:bg-white/15'
+            }`}
           >
-            Knowledge Graph
-          </button>
-          
-          <button 
-            onClick={() => onNavigate('quiz')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer ${currentView === 'quiz' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
-          >
-            Adaptive Testing
+            My Lectures
           </button>
 
           <button 
             onClick={() => onNavigate('profile')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer ${(currentView === 'profile' || currentView === 'dashboard') ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer ${(currentView === 'profile' || currentView === 'dashboard') ? 'bg-white/20 text-white shadow-md' : 'text-blue-100 hover:text-white hover:bg-white/15'}`}
           >
             User Profile
           </button>
 
           {/* DYNAMIC RIGHT-HAND AUTH BLOCKS */}
-          <div className="flex items-center gap-3 border-l border-slate-800 pl-4 ml-2">
+          <div className="flex items-center gap-3 border-l border-white/30 pl-4 ml-2">
             {user?.is_anonymous ? (
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => onNavigate('login')} 
-                  className="text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                  className="text-xs text-white/80 hover:text-white px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
                 >
                   Sign In
                 </button>
                 <button 
                   onClick={() => onNavigate('signup')} 
-                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg font-semibold shadow transition-all cursor-pointer"
+                  className="text-xs bg-white text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg font-semibold shadow transition-all cursor-pointer"
                 >
                   Link Account
                 </button>
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <span className="text-[10px] font-mono text-slate-400 bg-slate-950 px-2.5 py-1 rounded border border-slate-800">
+                <span className="text-[10px] font-mono text-white/90 bg-white/10 border-white/20 px-2.5 py-1 rounded border ">
                   ✉️ {user?.email}
                 </span>
                 <button 
                   onClick={onSignOut} 
-                  className="text-xs font-bold text-rose-400 hover:bg-rose-950/30 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                  className="text-xs font-bold text-white/80 hover:bg-white/10 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
                 >
                   Exit
                 </button>
@@ -97,7 +92,7 @@ function DashboardShell({ user, currentView, onNavigate, onSignOut, activeVideoI
         <div className="md:hidden">
           <button 
             onClick={() => setIsOpen(!isOpen)}
-            className="p-2 rounded-md text-slate-400 hover:bg-slate-800 focus:outline-none cursor-pointer"
+            className="p-2 rounded-md text-white hover:bg-white/15 focus:outline-none cursor-pointer"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
@@ -108,44 +103,40 @@ function DashboardShell({ user, currentView, onNavigate, onSignOut, activeVideoI
 
       {/* MOBILE DRILL-DOWN DROPDOWN DRAWER */}
       {isOpen && (
-        <div className="md:hidden fixed top-16 left-0 w-full bg-slate-900 border-b border-slate-800 p-4 space-y-1.5 z-40 flex flex-col animate-fadeIn">
+        <div className="md:hidden fixed top-16 left-0 w-full bg-white border-slate-200 shadow-lg p-4 space-y-1.5 z-40 flex flex-col animate-fadeIn">
           <button 
             onClick={() => { onNavigate('ingest'); setIsOpen(false); }}
-            className="w-full text-left px-3 py-2 rounded-md hover:bg-slate-800 text-slate-300 text-xs font-semibold"
+            className="w-full text-left px-3 py-2 rounded-md hover:bg-slate-100 text-slate-700 text-xs font-semibold"
           >
             Home Pipeline
           </button>
           <button 
-            onClick={() => { onNavigate('graph'); setIsOpen(false); }}
-            className="w-full text-left px-3 py-2 rounded-md hover:bg-slate-800 text-slate-300 text-xs font-semibold"
+            onClick={() => {onNavigate('lectures'); setIsOpen(false);}}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer ${
+              currentView === 'lectures' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
           >
-            Knowledge Graph
-          </button>
-          <button 
-            onClick={() => { onNavigate('quiz'); setIsOpen(false); }}
-            className="w-full text-left px-3 py-2 rounded-md hover:bg-slate-800 text-slate-300 text-xs font-semibold"
-          >
-            Adaptive Testing
+            My Lectures
           </button>
           <button 
             onClick={() => { onNavigate('profile'); setIsOpen(false); }}
-            className="w-full text-left px-3 py-2 rounded-md hover:bg-slate-800 text-slate-300 text-xs font-semibold"
+            className="w-full text-left px-3 py-2 rounded-md hover:bg-slate-100 text-slate-700 text-xs font-semibold"
           >
             User Profile
           </button>
           
           {/* Mobile Auth Triggers */}
           {user?.is_anonymous ? (
-            <div className="pt-2 border-t border-slate-800 flex flex-col space-y-1.5">
+            <div className="pt-2 border-t border-slate-200 flex flex-col space-y-1.5">
               <button 
                 onClick={() => { onNavigate('login'); setIsOpen(false); }}
-                className="w-full text-left px-3 py-2 rounded-md text-slate-300 text-xs font-semibold hover:bg-slate-800"
+                className="w-full text-left px-3 py-2 rounded-md text-slate-700 text-xs font-semibold hover:bg-slate-100"
               >
                 Sign In
               </button>
               <button 
                 onClick={() => { onNavigate('signup'); setIsOpen(false); }}
-                className="w-full text-left px-3 py-2 rounded-md text-blue-400 text-xs font-semibold hover:bg-slate-800"
+                className="w-full text-left px-3 py-2 rounded-md text-blue-600 font-semibold hover:bg-blue-50 text-xs font-semibold "
               >
                 Link Account
               </button>
@@ -153,7 +144,7 @@ function DashboardShell({ user, currentView, onNavigate, onSignOut, activeVideoI
           ) : (
             <button 
               onClick={() => { onSignOut(); setIsOpen(false); }} 
-              className="w-full text-left px-3 py-2 rounded-md text-rose-400 text-xs font-semibold bg-rose-950/20"
+              className="w-full text-left px-3 py-2 rounded-md text-rose-600 bg-rose-50 hover:bg-rose-100 text-xs font-semibold "
             >
               Exit Session
             </button>
@@ -165,16 +156,59 @@ function DashboardShell({ user, currentView, onNavigate, onSignOut, activeVideoI
       <main className="flex-1 pt-20 w-full max-w-7xl mx-auto p-4 md:p-8 flex flex-col justify-start">
         {/* Render auth forms when in login/signup mode */}
         {currentView === 'login' && (
-          <div className="w-full max-w-md mx-auto my-auto bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl">
-            <h2 className="text-xl font-bold mb-4 text-white">Welcome Back</h2>
-            <LoginForm />
+          <div className="w-full max-w-4xl mx-auto my-auto flex flex-row rounded-2xl overflow-hidden shadow-2xl min-h-[480px]">
+            <div className="hidden md:flex w-2/5 bg-gradient-to-br from-blue-600 to-indigo-700
+            flex-col justify-between p-10 relative overflow-hidden">
+              {/* TOP SECTION: */}
+              <div>
+                <h2 className="text-3xl font-extrabold text-white leading-tight">
+                  From lecture<br/>to mastery.
+                </h2>
+                <p className="text-blue-100 text-sm mt-3">
+                  Turn any YouTube lecture into an adaptive quiz — instantly.
+                </p>
+              </div>
+              {/* DECORATIVE CIRCLES (absolutely positioned, purely visual): */}
+              <div className="absolute -bottom-10 -right-10 w-48 h-48 rounded-full bg-white/10" />
+              <div className="absolute top-10 -right-6 w-24 h-24 rounded-full bg-white/10" />
+              {/* BOTTOM BRAND: */}
+              <div className="flex items-center gap-2">
+                <span className="bg-white/20 text-white px-2 py-1 rounded-md font-mono font-bold text-sm">L</span>
+                <span className="text-white font-bold tracking-tight">Lectura</span>
+              </div>
+            </div>
+            <div className= "w-full md:w-3/5 bg-white p-8 md:p-10 flex flex-col justify-center">
+              <LoginForm onNavigate={onNavigate} />
+            </div>
+            
           </div>
         )}
 
         {currentView === 'signup' && (
-          <div className="w-full max-w-md mx-auto my-auto bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl">
-            <h2 className="text-xl font-bold mb-4 text-white">Upgrade Session</h2>
-            <SignUpForm />
+          <div className="w-full max-w-4xl mx-auto my-auto flex flex-row rounded-2xl overflow-hidden shadow-2xl min-h-[480px]">
+            <div className="hidden md:flex w-2/5 bg-gradient-to-br from-blue-600 to-indigo-700
+            flex-col justify-between p-10 relative overflow-hidden">
+              {/* TOP SECTION: */}
+              <div>
+                <h2 className="text-3xl font-extrabold text-white leading-tight">
+                  From lecture<br/>to mastery.
+                </h2>
+                <p className="text-blue-100 text-sm mt-3">
+                  Turn any YouTube lecture into an adaptive quiz — instantly.
+                </p>
+              </div>
+              {/* DECORATIVE CIRCLES (absolutely positioned, purely visual): */}
+              <div className="absolute -bottom-10 -right-10 w-48 h-48 rounded-full bg-white/10" />
+              <div className="absolute top-10 -right-6 w-24 h-24 rounded-full bg-white/10" />
+              {/* BOTTOM BRAND: */}
+              <div className="flex items-center gap-2">
+                <span className="bg-white/20 text-white px-2 py-1 rounded-md font-mono font-bold text-sm">L</span>
+                <span className="text-white font-bold tracking-tight">Lectura</span>
+              </div>
+            </div>
+            <div className= "w-full md:w-3/5 bg-white p-8 md:p-10 flex flex-col justify-center">
+              <SignUpForm onNavigate={onNavigate}/>
+            </div>
           </div>
         )}
 

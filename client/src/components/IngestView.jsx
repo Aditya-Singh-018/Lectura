@@ -103,19 +103,22 @@ export default function IngestView() {
     <div className="max-w-3xl mx-auto px-4 py-12">
       {/* Header Info */}
       <div className="text-center mb-10">
-        <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
-          Convert Video Lectures into Smart Quizzes
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+          Convert Video Lectures into{' '}
+          <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            Smart Quizzes
+          </span>
         </h1>
-        <p className="mt-3 text-lg text-gray-500 max-w-xl mx-auto">
+        <p className="mt-3 text-lg text-slate-500 max-w-xl mx-auto">
           Enter a standalone YouTube link below to trigger our distributed extraction pipelines.
         </p>
       </div>
 
       {/* Action Submit Card */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8 shadow-sm">
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="video-url" className="block text-sm font-semibold text-gray-700 mb-2">
+            <label htmlFor="video-url" className="block text-sm font-semibold text-slate-700 mb-2">
               YouTube Video URL
             </label>
             <div className="flex flex-col sm:flex-row gap-3">
@@ -126,12 +129,12 @@ export default function IngestView() {
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://www.youtube.com/watch?v=..."
                 disabled={status === 'submitting' || status === 'processing'}
-                className="flex-1 block w-full px-4 py-3 text-base text-gray-900 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:opacity-60"
+                className="flex-1 block w-full px-4 py-3 text-base text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 placeholder:text-slate-400 disabled:opacity-60"
               />
               <button
                 type="submit"
                 disabled={status === 'submitting' || status === 'processing' || !url.trim()}
-                className="inline-flex items-center justify-center px-6 py-3 text-base font-medium rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center justify-center px-6 py-3 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {status === 'submitting' && 'Queuing...'}
                 {status === 'processing' && 'Processing...'}
@@ -143,12 +146,12 @@ export default function IngestView() {
 
         {/* Dynamic Alerts */}
         {status === 'error' && (
-          <div className="mt-4 p-4 bg-red-50 rounded-xl border border-red-100 text-sm text-red-800">
+          <div className="mt-4 p-4 bg-rose-50 rounded-xl border border-rose-300 text-sm text-rose-800">
             <strong>Processing Error:</strong> {errorMessage || 'An error occurred.'}
           </div>
         )}
         {status === 'success' && (
-          <div className="mt-4 p-4 bg-emerald-50 rounded-xl border border-emerald-100 text-sm text-emerald-800">
+          <div className="mt-4 p-4 bg-emerald-50 rounded-xl border border-emerald-300 text-sm text-emerald-800">
             <strong>Ingestion Complete!</strong> Your knowledge graph and testing setup are ready inside your dashboard profile.
           </div>
         )}
@@ -156,12 +159,12 @@ export default function IngestView() {
 
       {/* Hardened BullMQ Pipeline Execution Track */}
       {(status === 'processing' || status === 'success' || status === 'submitting') && (
-        <div className="mt-8 bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-          <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-6">
+        <div className="mt-8 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-6">
             Active Processing Infrastructure Pipeline
           </h2>
 
-          <div className="space-y-8 relative before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-100">
+          <div className="space-y-8 relative before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
             {/* Grouping Filter for Visual Layout blocks */}
             {['Ingestion Engine', 'Knowledge Graph', 'Curriculum Generation'].map((jobGroup) => {
               const groupSteps = steps.filter(s => s.type === jobGroup);
@@ -172,9 +175,9 @@ export default function IngestView() {
                   {/* Job Header Tag */}
                   <div className="relative z-10 flex items-center gap-2 -ml-1">
                     <span className={`text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded ${
-                      jobGroup === 'Ingestion Engine' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
-                      jobGroup === 'Knowledge Graph' ? 'bg-purple-50 text-purple-700 border border-purple-100' :
-                      'bg-amber-50 text-amber-700 border border-amber-100'
+                      jobGroup === 'Ingestion Engine' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                      jobGroup === 'Knowledge Graph' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
+                      'bg-amber-50 text-amber-700 border border-amber-200'
                     }`}>
                       {jobGroup}
                     </span>
@@ -197,15 +200,15 @@ export default function IngestView() {
                             </div>
                           )}
                           {step.status === 'pending' && (
-                            <div className="w-5 h-5 rounded-full bg-white border border-gray-200" />
+                            <div className="w-5 h-5 rounded-full bg-white border-2 border-slate-200" />
                           )}
                         </div>
 
                         {/* Text descriptions */}
                         <div>
                           <p className={`text-sm font-medium transition-colors ${
-                            step.status === 'complete' ? 'text-emerald-800' : 
-                            step.status === 'active' ? 'text-amber-800 font-bold' : 'text-gray-400'
+                            step.status === 'complete' ? 'text-emerald-700' : 
+                            step.status === 'active' ? 'text-blue-700 font-bold' : 'text-slate-400'
                           }`}>
                             {step.name}
                           </p>

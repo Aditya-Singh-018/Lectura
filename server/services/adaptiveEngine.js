@@ -27,7 +27,7 @@ export async function selectNextQuestion(userId,videoId){
         //fetch all the prerequisite concept_edges for all the target concepts because if 
         //a user for unlocking current (target) concepts need to see that the what is the score of previous concepts
         //so selecting target concets rows are must along with them source concepts will already be present
-        const {data: edges} = supabase
+        const {data: edges} = await supabase
         .from("concept_edges")
         .select("source_concept_id,target_concept_id")
         .in("target_concept_id",conceptIds);
@@ -43,12 +43,12 @@ export async function selectNextQuestion(userId,videoId){
         const masteryMap = new Map();
         if(!perfErr && performanceLogs){
 
-            let statPerConcept = {};
+            let statsPerConcept = {};
 
             performanceLogs.forEach(log=>{
                 const cId = log.questions.concept_id;
                 if(!statsPerConcept[cId]){
-                    statPerConcept[cId] = {correct: 0,total: 0};
+                    statsPerConcept[cId] = {correct: 0,total: 0};
                 }
                 //Sliding Window -> COntains only the last 3 attempts!
                 if(statsPerConcept[cId].total < 3){
@@ -72,10 +72,10 @@ export async function selectNextQuestion(userId,videoId){
         const prereqsForNode = new Map();
         edges?.forEach(edge =>{
             if(!prereqsForNode.has(edge.target_concept_id)){
-                prereqsForNode[edge.target_concept_id] = [];
+                prereqsForNode.set(edge.target_concept_id,[]);
             }
+            prereqsForNode.get(edge.target_concept_id).push(edge.source_concept_id);
         });
-        prereqsForNode.get(edge.target_concept_id).push(edge.source_concept_id);
 
         const unlockableConcepts = concepts.filter(concept =>{
             const parentIds = prereqsForNode.get(concept.id) || []; //extracted parent ids
