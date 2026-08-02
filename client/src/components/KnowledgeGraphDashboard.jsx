@@ -188,9 +188,10 @@ return (
       {/* ── REACT FLOW GRAPH CANVAS ─────────────────────────────────────────── */}
       <div className="flex-1 relative">
         {loading ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3">
-            <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-            <p className="text-slate-400 text-sm">Building knowledge graph...</p>
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
+            <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+            <h3 className="text-base font-bold text-slate-800">Building Knowledge Graph...</h3>
+            <p className="text-xs text-slate-400">Synthesizing prerequisites and target concepts</p>
           </div>
         ) : nodes.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-center">

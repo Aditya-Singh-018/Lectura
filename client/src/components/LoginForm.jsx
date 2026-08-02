@@ -17,9 +17,10 @@ export default function LoginForm({onNavigate}){
     const handleSubmit = async (event) =>{
         event.preventDefault();
         setErrorMessage(null);
-        console.log(formData);
+        const cleanEmail = formData.email.trim().toLowerCase();
+        console.log({ ...formData, email: cleanEmail });
             const { data, error } = await supabase.auth.signInWithPassword({
-            email: formData.email,
+            email: cleanEmail,
             password: formData.password,
             });
         
@@ -59,7 +60,7 @@ export default function LoginForm({onNavigate}){
                 <input className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50
                 text-slate-900 placeholder:text-slate-400
                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                transition-colors" id="email" placeholder="you@example.com" type="text" value={formData.email} onChange={handleInputChange} name="email"/>
+                transition-colors" id="email" placeholder="you@example.com" type="email" value={formData.email} onChange={handleInputChange} name="email"/>
                 </div>
                 <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5" htmlFor="password">Password</label>

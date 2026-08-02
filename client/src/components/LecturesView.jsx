@@ -24,11 +24,15 @@ export default function LecturesView({ onSelectGraph, onSelectQuiz }) {
     fetchVideos();
   }, []);
 
-  if (loading) return(
-    <div className="flex items-center justify-center h-48">
-    <p className="text-slate-500 text-sm animate-pulse">Loading your lectures...</p>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-20 flex flex-col items-center justify-center text-center">
+        <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4" />
+        <h3 className="text-base font-bold text-slate-800">Loading Your Lectures...</h3>
+        <p className="text-xs text-slate-400 mt-1">Retrieving processed video knowledge graphs</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">

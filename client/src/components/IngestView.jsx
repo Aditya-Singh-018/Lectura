@@ -136,6 +136,9 @@ export default function IngestView() {
                 disabled={status === 'submitting' || status === 'processing' || !url.trim()}
                 className="inline-flex items-center justify-center px-6 py-3 text-base font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
+                {(status === 'submitting' || status === 'processing') && (
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2 inline-block" />
+                )}
                 {status === 'submitting' && 'Queuing...'}
                 {status === 'processing' && 'Processing...'}
                 {status !== 'submitting' && status !== 'processing' && 'Process Video'}
@@ -195,9 +198,7 @@ export default function IngestView() {
                             </div>
                           )}
                           {step.status === 'active' && (
-                            <div className="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-white text-[8px] font-bold animate-pulse">
-                              ●
-                            </div>
+                            <div className="w-5 h-5 rounded-full border-2 border-blue-200 border-t-blue-600 animate-spin bg-white shadow-sm" />
                           )}
                           {step.status === 'pending' && (
                             <div className="w-5 h-5 rounded-full bg-white border-2 border-slate-200" />

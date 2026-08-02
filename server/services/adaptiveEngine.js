@@ -32,37 +32,58 @@ export async function selectNextQuestion(userId,videoId){
         .select("source_concept_id,target_concept_id")
         .in("target_concept_id",conceptIds);
 
+        // 1. Fetch ALL questions for ALL concepts in this video FIRST
+        const { data: allQuestions, error: qErr } = await supabase
+            .from("questions")
+            .select("id, concept_id, question_text, options, difficulty_level")
+            .in("concept_id", conceptIds);
+
+        if (qErr || !allQuestions || allQuestions.length === 0) {
+            return null; // No questions exist -> complete
+        }
+
+        const videoQuestionIds = allQuestions.map(q => q.id);
+        const questionConceptMap = new Map();
+        allQuestions.forEach(q => questionConceptMap.set(String(q.id), Number(q.concept_id)));
+
+        // 2. Fetch all performance logs for this user on these specific video questions (NO JOINS!)
         const { data: performanceLogs, error: perfErr } = await supabase
-        .from("user_performance")
-        .select(`question_id, is_correct, questions!inner(concept_id)`)  //joining the concept of a ques directly in user performance table 
-        .eq("user_id", userId)                              //matching for only a particular user
-        .in("questions.concept_id", conceptIds)            //only for those concepts whose id are part of current video
-        .order("last_attempted_at", { ascending: false });  //LATEST ATTEMPTS FIRST!
-        
+            .from("user_performance")
+            .select("question_id, is_correct")
+            .eq("user_id", userId)
+            .in("question_id", videoQuestionIds)
+            .order("last_attempted_at", { ascending: false });
+
+        if (perfErr) {
+            console.error("[ADAPTIVE ENGINE] Error fetching user_performance logs:", perfErr);
+        }
+
         // Track all previously attempted question IDs as Strings (never repeat an attempted question in the quiz)
-        const attemptedQIds = new Set(performanceLogs?.map(log => String(log.question_id)) || []);
+        const attemptedQIds = new Set(
+            (performanceLogs || []).map(log => String(log.question_id))
+        );
+        console.log(`[ADAPTIVE ENGINE] Video ${videoId}: ${attemptedQIds.size}/${allQuestions.length} questions attempted by user ${userId}`);
 
-        //Map lookup -> O(1)
+        // Map lookup -> O(1)
         const masteryMap = new Map();
-        if(!perfErr && performanceLogs){
-
+        if (!perfErr && performanceLogs) {
             let statsPerConcept = {};
 
-            performanceLogs.forEach(log=>{
-                const cId = log.questions.concept_id;
-                if(!statsPerConcept[cId]){
-                    statsPerConcept[cId] = {correct: 0,total: 0};
+            performanceLogs.forEach(log => {
+                const cId = questionConceptMap.get(String(log.question_id));
+                if (!cId) return;
+                if (!statsPerConcept[cId]) {
+                    statsPerConcept[cId] = { correct: 0, total: 0 };
                 }
-                //Sliding Window -> COntains only the last 3 attempts!
-                if(statsPerConcept[cId].total < 3){
+                // Sliding Window -> Contains only the last 3 attempts!
+                if (statsPerConcept[cId].total < 3) {
                     statsPerConcept[cId].total += 1;
-                    if(log.is_correct){
+                    if (log.is_correct) {
                         statsPerConcept[cId].correct += 1;
                     }
                 }
             });
 
-            //Object.keys extract keys(Concept Id) and converts them in the form of array so i can easily iterate over them
             Object.keys(statsPerConcept).forEach(cId => {
                 const { correct, total } = statsPerConcept[cId];
                 const percentageScore = Math.round((correct / total) * 100);
@@ -70,17 +91,7 @@ export async function selectNextQuestion(userId,videoId){
             });
         }
 
-        // Fetch ALL questions for ALL concepts in this video
-        const { data: allQuestions, error: qErr } = await supabase
-            .from("questions")
-            .select("id, concept_id, question_text, options, difficulty_level")
-            .in("concept_id", conceptIds);
-
-        if (qErr || !allQuestions || allQuestions.length === 0){
-            return null; // No questions exist -> complete
-        }
-
-        // Only group unattempted questions by concept (excluding all previously attempted questions via String ID comparison)
+        // 3. Group unattempted questions by concept (excluding all previously attempted questions via String ID comparison)
         const unattemptedByConcept = new Map();
         allQuestions.forEach(q => {
             const qIdStr = String(q.id);
@@ -102,32 +113,35 @@ export async function selectNextQuestion(userId,videoId){
         //Adjacency List for prerequisites : target -> sources , using this we will check that 
         //whether we can unlock target concept ques on the basis of sources masteryPercentage
         const prereqsForNode = new Map();
-        edges?.forEach(edge =>{
-            if(!prereqsForNode.has(edge.target_concept_id)){
-                prereqsForNode.set(edge.target_concept_id,[]);
+        edges?.forEach(edge => {
+            const tId = Number(edge.target_concept_id);
+            const sId = Number(edge.source_concept_id);
+            if (!prereqsForNode.has(tId)) {
+                prereqsForNode.set(tId, []);
             }
-            prereqsForNode.get(edge.target_concept_id).push(edge.source_concept_id);
+            prereqsForNode.get(tId).push(sId);
         });
 
         // Only consider concepts that still have unattempted questions available
         const conceptsWithQuestions = concepts.filter(c => (unattemptedByConcept.get(Number(c.id))?.length || 0) > 0);
 
-        const unlockableConcepts = conceptsWithQuestions.filter(concept =>{
-            const parentIds = prereqsForNode.get(concept.id) || []; //extracted parent ids
-            return parentIds.every(parentId => {                    //returning those concepts for whose masteryPer>=60 of all parents
-                const parentMastery = masteryMap.get(parentId) || 0;
+        const unlockableConcepts = conceptsWithQuestions.filter(concept => {
+            const parentIds = prereqsForNode.get(Number(concept.id)) || []; // extracted parent ids
+            return parentIds.every(parentId => {
+                const parentMastery = masteryMap.get(Number(parentId)) || 0;
                 return parentMastery >= 60; 
             });
         });
 
-        //Computing selection weights on valid pool
+        // Computing selection weights on valid pool
         const finalPool = unlockableConcepts.length > 0 ? unlockableConcepts : conceptsWithQuestions;
         let totalWeight = 0;
         const candidates = finalPool.map(concept => {
-            const currentMastery = masteryMap.get(concept.id) || 0;
+            const cIdNum = Number(concept.id);
+            const currentMastery = masteryMap.get(cIdNum) || 0;
             const selectionWeight = Math.max(105 - currentMastery, 5); 
             totalWeight += selectionWeight;
-            return { conceptId: concept.id, name: concept.name, weight: selectionWeight };
+            return { conceptId: cIdNum, name: concept.name, weight: selectionWeight };
         });
 
         //Spinning Roullete Wheel

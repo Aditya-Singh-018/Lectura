@@ -67,10 +67,12 @@ function App(){
     setCurrentView('quiz');
   };
 
-  if(loading){
+  if (loading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-slate-950 text-slate-400 font-mono text-xs">
-        Hydrating App Shell...
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-50 text-center p-4">
+        <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4 shadow-sm" />
+        <h2 className="text-lg font-bold text-slate-900 tracking-tight">Lectura AI</h2>
+        <p className="text-xs text-slate-400 mt-1">Initializing workspace & authentication...</p>
       </div>
     );
   }

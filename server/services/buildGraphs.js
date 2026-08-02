@@ -44,44 +44,53 @@ export class Graph{
                 let targetNode = null;
                 let mnInDegree = Infinity;
 
-                for(const node in unprocessedNodes){
+                for(const node of unprocessedNodes){
                     let deg = this.inDegree.get(node);
-                    if(deg>0 && deg < mnIndegree){
+                    if(deg > 0 && deg < mnInDegree){
                         mnInDegree = deg;
                         targetNode = node;
                     }
+                }
+
+                if(!targetNode && unprocessedNodes.length > 0){
+                    targetNode = unprocessedNodes[0];
                 }
 
                 if(!targetNode){
                     throw new Error("Graph Parsing broke during cycle resolution!");
                 }
 
-                let brokenEdge = false;
+                let edgeBroken = false;
                 for(const u of unprocessedNodes){
-                    const neighbors = this.adjList.get(u);
+                    const neighbors = this.adjList.get(u) || [];
                     const index = neighbors.indexOf(targetNode);
 
                     if(index != -1){
-                        neighbors.splice(index,1); //deleted targetNode from neighbors
-                        this.inDegree.set(targetNode,this.inDegree.get(targetNode)-1);
-                        brokenEdge.push({source_id:u,target_id:targetNode});
-                        brokenEdge = true;
+                        neighbors.splice(index, 1); // deleted targetNode from neighbors
+                        this.inDegree.set(targetNode, this.inDegree.get(targetNode) - 1);
+                        brokenEdges.push({ source_id: u, target_id: targetNode });
+                        edgeBroken = true;
                         console.log(`Edge Broken : ${u} -> ${targetNode}`);
                         break;
                     }
                 }
+
                 for(const id of unprocessedNodes){
-                    if(this.inDegree.get(id) === 0) queue.push(id);
+                    if(this.inDegree.get(id) === 0 && !queue.includes(id)) {
+                        queue.push(id);
+                    }
                 }
 
-                //Mathematically not possible but programatically is!
+                // Mathematically not possible but programatically is!
                 if(!edgeBroken){
                     console.error("Force pushing remaining nodes to break the loop.");
-                    remainingNodes.forEach(id => sortedOrder.push(id));
+                    unprocessedNodes.forEach(id => {
+                        if (!sortedOrder.includes(id)) sortedOrder.push(id);
+                    });
                     break;
                 }
 
-                continue;   //reevaluation of queue loop with modified graph state
+                continue;   // reevaluation of queue loop with modified graph state
             }
 
             //KAHN ALGORITHM
