@@ -24,37 +24,65 @@ export default function LecturesView({ onSelectGraph, onSelectQuiz }) {
     fetchVideos();
   }, []);
 
-  if (loading) return <div className="p-8 text-center text-slate-400 text-sm">Loading your lectures...</div>;
+  if (loading) return(
+    <div className="flex items-center justify-center h-48">
+    <p className="text-slate-500 text-sm animate-pulse">Loading your lectures...</p>
+    </div>
+  );
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
-      <h1 className="text-xl font-bold text-white mb-6">My Ingested Lectures</h1>
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <h1 className="text-2xl font-extrabold text-slate-900 mb-2">My Ingested Lectures</h1>
+      <p className="text-sm text-slate-500 mb-6">
+        {videos.length} lecture{videos.length !== 1 ? 's' : ''} processed
+      </p>
       
       {videos.length === 0 ? (
-        <p className="text-slate-400 text-sm">No processed videos found yet. Ingest a video first!</p>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="text-5xl mb-4">🎓</div>
+          <h3 className="text-lg font-semibold text-slate-700 mb-2">No lectures yet</h3>
+          <p className="text-sm text-slate-500">Ingest a YouTube video to get started.</p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="flex flex-col gap-4">
           {videos.map((vid) => (
-            <div key={vid.video_id} className="bg-slate-900 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
-              <div>
-                <h3 className="font-semibold text-white text-sm mb-1">{vid.title || `Video ID: ${vid.video_id}`}</h3>
-                <p className="text-xs text-slate-400 font-mono mb-4">ID: {vid.video_id}</p>
+            <div key={vid.video_id} className="bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col sm:flex-row items-center gap-0 overflow-hidden hover:shadow-md transition-shadow duration-200">
+              <div className="w-full h-44 sm:w-44 sm:h-28 flex-shrink-0 bg-slate-100 overflow-hidden">
+                <img
+                  src={`https://img.youtube.com/vi/${vid.video_id}/hqdefault.jpg`}
+                  alt={vid.title || 'Video thumbnail'}
+                  className="w-full h-full object-cover"
+                />
               </div>
-              
-              {/* Dual Action Buttons */}
-              <div className="flex gap-2 pt-2 border-t border-slate-800/80">
-                <button
-                  onClick={() => onSelectGraph(vid.video_id)}
-                  className="flex-1 py-2 px-3 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white rounded-lg text-xs font-semibold transition-all"
-                >
-                  📊 Knowledge Graph
-                </button>
-                <button
-                  onClick={() => onSelectQuiz(vid.video_id)}
-                  className="flex-1 py-2 px-3 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded-lg text-xs font-semibold transition-all"
-                >
-                  📝 Adaptive Quiz
-                </button>
+
+              <div className="flex-1 p-5 flex flex-col justify-between min-h-[112px]">
+                <div>
+                  <h3 className="font-semibold text-slate-900 text-sm mb-1 line-clamp-2">
+                    {vid.title || `Video ID: ${vid.video_id}`}
+                  </h3>
+                  <a
+                    href={`https://youtube.com/watch?v=${vid.video_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-500 hover:underline font-mono"
+                  >
+                    youtube.com/watch?v={vid.video_id}
+                  </a>
+                </div>
+                <div className="flex gap-2 pt-2 border-t border-slate-100 mt-3">
+                    <button
+                      onClick={() => onSelectGraph(vid.video_id)}
+                      className="flex-1 py-2 px-3 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white transition-all duration-200 rounded-lg text-xs font-semibold"
+                    >
+                      📊 Knowledge Graph
+                    </button>
+                    <button
+                      onClick={() => onSelectQuiz(vid.video_id)}
+                      className="flex-1 py-2 px-3 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-all duration-200 rounded-lg text-xs font-semibold transition-all"
+                    >
+                      📝 Adaptive Quiz
+                    </button>
+                  </div>
               </div>
             </div>
           ))}

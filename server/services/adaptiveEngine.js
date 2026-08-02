@@ -34,11 +34,14 @@ export async function selectNextQuestion(userId,videoId){
 
         const { data: performanceLogs, error: perfErr } = await supabase
         .from("user_performance")
-        .select(`is_correct, questions!inner(concept_id)`)  //joining the concept of a ques directly in user performance table 
+        .select(`question_id, is_correct, questions!inner(concept_id)`)  //joining the concept of a ques directly in user performance table 
         .eq("user_id", userId)                              //matching for only a particular user
         .in("questions.concept_id", conceptIds)            //only for those concepts whose id are part of current video
         .order("last_attempted_at", { ascending: false });  //LATEST ATTEMPTS FIRST!
         
+        // Track all previously attempted question IDs as Strings (never repeat an attempted question in the quiz)
+        const attemptedQIds = new Set(performanceLogs?.map(log => String(log.question_id)) || []);
+
         //Map lookup -> O(1)
         const masteryMap = new Map();
         if(!perfErr && performanceLogs){
@@ -67,6 +70,35 @@ export async function selectNextQuestion(userId,videoId){
             });
         }
 
+        // Fetch ALL questions for ALL concepts in this video
+        const { data: allQuestions, error: qErr } = await supabase
+            .from("questions")
+            .select("id, concept_id, question_text, options, difficulty_level")
+            .in("concept_id", conceptIds);
+
+        if (qErr || !allQuestions || allQuestions.length === 0){
+            return null; // No questions exist -> complete
+        }
+
+        // Only group unattempted questions by concept (excluding all previously attempted questions via String ID comparison)
+        const unattemptedByConcept = new Map();
+        allQuestions.forEach(q => {
+            const qIdStr = String(q.id);
+            const cIdNum = Number(q.concept_id);
+            if (!attemptedQIds.has(qIdStr)) {
+                if (!unattemptedByConcept.has(cIdNum)) {
+                    unattemptedByConcept.set(cIdNum, []);
+                }
+                unattemptedByConcept.get(cIdNum).push(q);
+            }
+        });
+
+        // If no unattempted questions remain in the entire video, the quiz is completed
+        if (unattemptedByConcept.size === 0) {
+            console.log(`[ADAPTIVE ENGINE] All available questions attempted for video ${videoId}. Completing quiz.`);
+            return null;
+        }
+
         //Adjacency List for prerequisites : target -> sources , using this we will check that 
         //whether we can unlock target concept ques on the basis of sources masteryPercentage
         const prereqsForNode = new Map();
@@ -77,7 +109,10 @@ export async function selectNextQuestion(userId,videoId){
             prereqsForNode.get(edge.target_concept_id).push(edge.source_concept_id);
         });
 
-        const unlockableConcepts = concepts.filter(concept =>{
+        // Only consider concepts that still have unattempted questions available
+        const conceptsWithQuestions = concepts.filter(c => (unattemptedByConcept.get(Number(c.id))?.length || 0) > 0);
+
+        const unlockableConcepts = conceptsWithQuestions.filter(concept =>{
             const parentIds = prereqsForNode.get(concept.id) || []; //extracted parent ids
             return parentIds.every(parentId => {                    //returning those concepts for whose masteryPer>=60 of all parents
                 const parentMastery = masteryMap.get(parentId) || 0;
@@ -85,8 +120,8 @@ export async function selectNextQuestion(userId,videoId){
             });
         });
 
-        //Computing selection weights
-        const finalPool = unlockableConcepts.length > 0 ? unlockableConcepts : concepts;
+        //Computing selection weights on valid pool
+        const finalPool = unlockableConcepts.length > 0 ? unlockableConcepts : conceptsWithQuestions;
         let totalWeight = 0;
         const candidates = finalPool.map(concept => {
             const currentMastery = masteryMap.get(concept.id) || 0;
@@ -110,17 +145,10 @@ export async function selectNextQuestion(userId,videoId){
 
         console.log(`[ADAPTIVE ENGINE] Selected concept: "${selectedConcept.name}" (Weight: ${selectedConcept.weight}/${totalWeight})`);
         
-        //Pulling out a single ques from selectedConcept
-        const { data: questions, error: qErr } = await supabase
-            .from("questions")
-            .select("id, question_text, options, difficulty_level")
-            .eq("concept_id", selectedConcept.conceptId);
+        //Pulling out a single unattempted question from selectedConcept
+        const availableQuestions = unattemptedByConcept.get(Number(selectedConcept.conceptId));
+        const finalQuestionSelected = availableQuestions[Math.floor(Math.random()*availableQuestions.length)];
 
-        if (qErr || !questions || questions.length === 0){
-            return { success: false, message: "No active questions bound to this concept slot." };
-        }
-
-        const finalQuestionSelected = questions[Math.floor(Math.random()*questions.length)];
         return{
             success: true,
             concept_id: selectedConcept.conceptId,

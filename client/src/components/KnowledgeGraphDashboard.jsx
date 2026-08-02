@@ -1,21 +1,92 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { groupIntoConnectedComponents } from '../utils/graphCluster.js';
+import React, { useState, useEffect, useMemo } from 'react';
+import ReactFlow, { Background, Controls, MiniMap, MarkerType, Handle, Position } from 'reactflow';
+import 'reactflow/dist/style.css';
+import dagre from '@dagrejs/dagre';
 import { supabase } from '../supabaseClient';
 
+const NODE_WIDTH = 180;
+const NODE_HEIGHT = 60;
 
-// Bug Fix #3: Accept videoId prop from App.jsx so navigating from IngestView
-//             auto-selects the just-processed video instead of defaulting to Global.
+function getLayoutedElements(concepts, rawEdges, direction = 'TB') {
+  const g = new dagre.graphlib.Graph();
+  g.setDefaultEdgeLabel(() => ({}));
+  g.setGraph({ rankdir: direction, nodesep: 60, ranksep: 100 });
+
+  concepts.forEach(c => g.setNode(String(c.id), { width: NODE_WIDTH, height: NODE_HEIGHT }));
+  rawEdges.forEach(e => g.setEdge(String(e.source_concept_id), String(e.target_concept_id)));
+
+  dagre.layout(g);
+
+  const nodes = concepts.map(c => {
+    const pos = g.node(String(c.id));
+    return {
+      id: String(c.id),
+      position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 },
+      data: { label: c.name, description: c.description, tier: c.sort_order || 0, direction },
+      type: 'conceptNode',
+    };
+  });
+
+  const edges = rawEdges.map(e => ({
+    id: `${e.source_concept_id}-${e.target_concept_id}`,
+    source: String(e.source_concept_id),
+    target: String(e.target_concept_id),
+    type: 'smoothstep',
+    style: { stroke: '#6366f1', strokeWidth: 1.5 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' },
+  }));
+
+  return { nodes, edges };
+}
+
+function ConceptNode({ data, selected }) {
+  const isVertical = data.direction === 'TB';
+
+  return (
+    <div className={`px-3 py-2.5 bg-white border-2 rounded-xl shadow-sm cursor-pointer transition-all duration-200 w-[180px]
+      ${selected ? 'border-indigo-500 shadow-indigo-200 shadow-md' : 'border-slate-200 hover:border-blue-400'}`}>
+
+      {/* Incoming connections — prerequisites */}
+      <Handle
+        type="target"
+        position={isVertical ? Position.Top : Position.Left}
+        style={{ background: '#6366f1', width: 8, height: 8, border: '2px solid white' }}
+      />
+
+      <p className="text-xs font-semibold text-slate-900 leading-snug">{data.label}</p>
+      <span className="text-[10px] text-indigo-400 font-medium mt-0.5 block">Tier {data.tier + 1}</span>
+
+      {/* Outgoing connections — unlocks */}
+      <Handle
+        type="source"
+        position={isVertical ? Position.Bottom : Position.Right}
+        style={{ background: '#6366f1', width: 8, height: 8, border: '2px solid white' }}
+      />
+
+    </div>
+  );
+}
+
+const nodeTypes = { conceptNode: ConceptNode };
+
 export default function KnowledgeGraphDashboard({ videoId: initialVideoId = null, onStartQuiz, onNavigate }) {
   // State elements
   const [videos, setVideos] = useState([]);
   const [activeVideoId, setActiveVideoId] = useState(initialVideoId); // seeded from prop
   const [graphData, setGraphData] = useState({ concepts: [], edges: [] });
-  const [selectedConcept, setSelectedConcept] = useState(null);
-  const [edgesWithCoordinates, setEdgesWithCoordinates] = useState([]);
+  const [direction, setDirection] = useState(() => 
+    typeof window !== 'undefined' && window.innerWidth < 640 ? 'LR' : 'TB'
+  );
   const [loading, setLoading] = useState(false);
 
-  const containerRef = useRef(null);
-  const nodeRefs = useRef({});
+  useEffect(() => {
+    const handleResize = () => {
+      setDirection(window.innerWidth < 640 ? 'LR' : 'TB');
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
 
   useEffect(()=>{
     async function fetchUserVideos(){
@@ -64,229 +135,89 @@ export default function KnowledgeGraphDashboard({ videoId: initialVideoId = null
     fetchGraphData();
   },[activeVideoId]);
 
-  const clusters = useMemo(() => {  //this memoizes the result of a calculation bw component re-renders
-    return groupIntoConnectedComponents(graphData.concepts, graphData.edges);
-  }, [graphData]);
+const { nodes, edges: flowEdges } = useMemo(() => {
+  if (!graphData.concepts.length) return { nodes: [], edges: [] };
+  return getLayoutedElements(graphData.concepts, graphData.edges, direction);
+}, [graphData, direction]);
 
+const activeVideoTitle = videos.find(v => v.video_id === activeVideoId)?.title || null;
 
-  // TODO: Insert SVG Arrow Coordinate Engine here (Milestone 3)
-
-  
-
-  return (
-    <div className="flex h-screen w-full bg-slate-950 text-slate-100 overflow-hidden font-sans">
-      
-      {/* 1. LEFT SIDEBAR: Video History Navigator */}
-      <div className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col z-20">
-        <div className="p-4 border-b border-slate-800">
-          <h2 className="text-sm font-bold text-white tracking-wide">Lectura Dashboard</h2>
-          <p className="text-[11px] text-slate-400">Select an isolation scope</p>
+return (
+    <div className="flex flex-col w-full bg-slate-50 font-sans" style={{ height: 'calc(100vh - 64px)' }}>
+      {/* ── TOP HEADER BAR ─────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-slate-200 shadow-sm z-10 flex-shrink-0">
+        {/* Left: Title + stats */}
+        <div>
+          <h2 className="text-sm font-bold text-slate-900">
+            {activeVideoTitle ? activeVideoTitle : 'Global Knowledge Graph'}
+          </h2>
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            {nodes.length} concepts &bull; {flowEdges.length} connections
+          </p>
         </div>
-        
-        <div className="p-3 flex flex-col gap-1 overflow-y-auto flex-1">
-          {/* Global Toggle Button */}
-          <button
-            onClick={() => setActiveVideoId(null)}
-            className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-              activeVideoId === null 
-                ? 'bg-indigo-600 text-white' 
-                : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
-            }`}
-          >
-            🌐 Global Master Tree
-          </button>
-
-          <div className="my-2 border-t border-slate-800/80 my-3"></div>
-          
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-3 mb-1">
-            Processed Videos
-          </span>
-          
-          {/* Placeholder for mapping your videos list */}
-          {videos.map((vid) => (
-            <button
-              key={vid.video_id}
-              onClick={() => setActiveVideoId(vid.video_id)}
-              className={`w-full text-left px-3 py-2 rounded-lg text-xs truncate block ${
-                activeVideoId === vid.video_id
-                  ? 'bg-slate-800 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-400 hover:bg-slate-800/40'
-              }`}
-            >
-              🎬 {vid.title || `Video ID: ${vid.video_id}`}
-            </button>
+        {/* Center: Video scope switcher */}
+        <select
+          value={activeVideoId || ''}
+          onChange={(e) => setActiveVideoId(e.target.value || null)}
+          className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+        >
+          <option value="">🌐 Global Master Tree</option>
+          {videos.map(vid => (
+            <option key={vid.video_id} value={vid.video_id}>
+              🎬 {vid.title || vid.video_id}
+            </option>
           ))}
+        </select>
+        {/* Right: Action buttons */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => onNavigate('lectures')}
+            className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors duration-200 cursor-pointer"
+          >
+            ← My Lectures
+          </button>
+          <button
+            onClick={onStartQuiz}
+            disabled={!activeVideoId}
+            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors duration-200 shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            📝 Start Quiz
+          </button>
         </div>
       </div>
-
-      {/* 2. CENTER PANEL: Graph Canvas Viewport */}
-      <div className="flex-1 flex flex-col overflow-hidden relative">
-        {/* Graph Header */}
-        <div className="p-4 bg-slate-900/40 border-b border-slate-800 backdrop-blur z-10 flex justify-between items-center">
-          <div>
-            <span className="text-[10px] uppercase font-bold text-indigo-400 tracking-widest block">View Target</span>
-            <h3 className="text-sm font-semibold text-white">
-              {activeVideoId === null ? 'All Connected Knowledge Fields' : `Video Workspace Scope`}
-            </h3>
+      {/* ── REACT FLOW GRAPH CANVAS ─────────────────────────────────────────── */}
+      <div className="flex-1 relative">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3">
+            <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+            <p className="text-slate-400 text-sm">Building knowledge graph...</p>
           </div>
-        </div>
-
-        {/* Dynamic Concept Node viewport */}
-        <div className="flex-1 p-8 overflow-y-auto flex flex-col gap-8 select-none">
-          {loading ? (
-            <div className="text-slate-500 text-xs italic p-4">Loading knowledge matrix...</div>
-          ) : clusters.length === 0 ? (
-            <div className="text-slate-500 text-xs italic p-4">No concepts available for this view.</div>
-          ) : (
-            /* 3. REPLACED PLACEHOLDER WITH ISLAND CLUSTER CARDS */
-            clusters.map((cluster, index) => (
-              <ClusterIsland
-                key={cluster.id}
-                clusterIndex={index + 1}
-                concepts={cluster.concepts}
-                edges={cluster.edges}
-                selectedConcept={selectedConcept}
-                onSelectConcept={setSelectedConcept}
-              />
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* 3. RIGHT SIDEBAR: Concept Context Panel */}
-      {selectedConcept && (
-        <div className="w-80 bg-slate-900 border-l border-slate-800 p-6 z-20 shadow-2xl animate-in slide-in-from-right duration-150 flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="font-bold text-base text-white">{selectedConcept.name}</h4>
-              <button onClick={() => setSelectedConcept(null)} className="text-slate-500 hover:text-white">✕</button>
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed">{selectedConcept.description}</p>
+        ) : nodes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
+            <div className="text-5xl">🧠</div>
+            <h3 className="text-base font-semibold text-slate-700">No concepts yet</h3>
+            <p className="text-sm text-slate-400">Select a video or ingest one to build its graph.</p>
           </div>
-          <div className="h-32 bg-slate-950 border border-slate-800 rounded-lg flex items-center justify-center text-xs text-slate-600 italic">
-            [ Video Segment Player Embed ]
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
-}
-
-function ClusterIsland({clusterIndex,concepts,edges,selectedConcept, onSelectConcept}){
-  const containerRef = useRef(null);    //useRef stores reference to a DOM element
-  const nodeRefs = useRef({});          //here i stored ref to a every concept node element
-  const [lines,setLines] = useState([]); //SVG lines states
-
-  //Set removes duplicate nodes, and then spread converts them back to nodes for arrangement
-  const levels = [...new Set(concepts.map((c) => c.sort_order || 0))].sort((a,b) => a-b); //extracting unique tiers present in this cluster
-
-  // Coordinate calculation function
-  const calculateCoordinates = () =>{
-    if(!containerRef.current) return;
-    const containerRect = containerRef.current.getBoundingClientRect(); //this inbuilt fn give margin from top and left as well as width and height
-    const computedLines = [];
-
-    //Looping through source and target ids
-    edges.forEach((edge) =>{
-      const srcId = edge.source_concept_id;
-      const targetId = edge.target_concept_id;
-
-      //extracted source and target element
-      const srcEl = nodeRefs.current[srcId];
-      const tgtEl = nodeRefs.current[targetId];
-
-      if(srcEl && tgtEl){
-        const srcRect = srcEl.getBoundingClientRect();  //rendering source rectangle
-        const tgtRect = tgtEl.getBoundingClientRect();  //rendering target rectangle
-
-        computedLines.push({
-          id: `${srcId}-${targetId}`,
-          srcId,
-          targetId,
-          x1: srcRect.right - containerRect.left,
-          y1: srcRect.top + srcRect.height / 2 - containerRect.top,
-          x2: tgtRect.left - containerRect.left,
-          y2: tgtRect.top + tgtRect.height / 2 - containerRect.top,
-        });
-      }
-    });
-    setLines(computedLines);
-  };
-  useEffect(() => {
-    calculateCoordinates();
-    window.addEventListener('resize', calculateCoordinates);
-    return () => window.removeEventListener('resize', calculateCoordinates);
-  }, [concepts, edges]);
-
-  return (
-    <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 relative backdrop-blur-sm shadow-xl">
-      {/* Island Header */}
-      <div className="flex items-center justify-between mb-4 border-b border-slate-800/80 pb-2.5">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-            Knowledge Island #{clusterIndex}
-          </h4>
-        </div>
-        <span className="text-[10px] text-slate-500 bg-slate-950 px-2.5 py-0.5 rounded-full border border-slate-800">
-          {concepts.length} Topics
-        </span>
-      </div>
-
-      {/* Node Canvas Area */}
-      <div ref={containerRef} className="flex items-center justify-start gap-16 relative min-h-[140px] overflow-x-auto pb-2">
-        {/* SVG Arrow Canvas */}
-        <svg className="absolute inset-0 pointer-events-none w-full h-full z-0">
-          <defs>
-            <marker id={`arrow-${clusterIndex}`} viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#6366f1" />
-            </marker>
-          </defs>
-          {lines.map((line) => {
-            // Bug Fix #4: line object uses `targetId` not `tgtId` — arrow highlights were never activating
-            const isActive = selectedConcept?.id === line.targetId || selectedConcept?.id === line.srcId;
-            const controlX = line.x1 + (line.x2 - line.x1) / 2;
-            return (
-              <path
-                key={line.id}
-                d={`M ${line.x1} ${line.y1} C ${controlX} ${line.y1}, ${controlX} ${line.y2}, ${line.x2} ${line.y2}`}
-                fill="none"
-                stroke={isActive ? '#818cf8' : '#334155'}
-                strokeWidth={isActive ? 2.5 : 1.25}
-                markerEnd={`url(#arrow-${clusterIndex})`}
-                className="transition-all duration-150"
-              />
-            );
-          })}
-        </svg>
-
-        {/* Concept Cards Grouped in Columns by Tier */}
-        {levels.map((level) => (
-          <div key={level} className="flex flex-col gap-4 min-w-[180px] z-10">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
-              Tier {level + 1}
-            </span>
-
-            {concepts
-              .filter((c) => (c.sort_order || 0) === level)
-              .map((concept) => {
-                const isSelected = selectedConcept?.id === concept.id;
-                return (
-                  <div
-                    key={concept.id}
-                    ref={(el) => (nodeRefs.current[concept.id] = el)}
-                    onClick={() => onSelectConcept(concept)}
-                    className={`p-3 border rounded-xl cursor-pointer transition-all duration-200 bg-slate-950/80 hover:border-slate-700 ${
-                      isSelected ? 'ring-2 ring-indigo-500 border-indigo-500 shadow-md shadow-indigo-500/10' : 'border-slate-800 text-slate-300'
-                    }`}
-                  >
-                    <h5 className="font-semibold text-xs text-white leading-snug">{concept.name}</h5>
-                  </div>
-                );
-              })}
-          </div>
-        ))}
+        ) : (
+          <ReactFlow
+            nodes={nodes}
+            edges={flowEdges}
+            nodeTypes={nodeTypes}
+            fitView
+            fitViewOptions={{ padding: 0.2, minZoom: 0.65, maxZoom: 1 }}
+            minZoom={0.25}
+            maxZoom={2}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background color="#cbd5e1" gap={24} size={1} />
+            <Controls />
+            <MiniMap
+              nodeColor={() => '#6366f1'}
+              maskColor="rgba(248,250,252,0.75)"
+              style={{ border: '1px solid #e2e8f0', borderRadius: '10px' }}
+            />
+          </ReactFlow>
+        )}
       </div>
     </div>
   );
