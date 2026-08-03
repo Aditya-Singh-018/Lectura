@@ -407,6 +407,9 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
         if(videoDbError) throw videoDbError;
         
         let transcriptObj = await fetchSingleVideoTranscript(urlAnalysis.data.id);
+        if (!transcriptObj.success || !transcriptObj.data) {
+            throw new Error(transcriptObj.error || "No English captions/transcript available for this video.");
+        }
         let transcript = transcriptObj.data.item;
         let exactVideoMinutes = transcriptObj.data.videoMinutes;
         await job.updateProgress(40);
@@ -488,12 +491,13 @@ const ingestWorker = new Worker("youtube-ingestion",async (job)=>{  //Worker cre
         console.error(`[CRITICAL WORKER FAILURE] Job ID ${job.id} failed!`);
         console.error(error.stack || error);    //this is for out debugging
 
-        if(job.data.videoId){
+        const failedVideoId = job.data.videoId || (job.data.url ? checkYoutubeUrl(job.data.url)?.data?.id : null);
+        if(failedVideoId){
             await updateVideoStatus(
-                job.data.videoId,
+                failedVideoId,
                 0,
                 "error",
-                ""
+                error.message || "Pipeline Worker Failed"
             );
         }
         throw new Error(`Worker failed: ${error.message}`); //we're throwing the error again so that the bullMQ catches it again inside BullMQ's internal execution engine.
