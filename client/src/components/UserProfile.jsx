@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from "react";
 import { supabase } from "../supabaseClient";
+import { API_BASE } from "../../utils/api";
 
 export default function UserProfile(){
     const [profile,setProfile] = useState(null);
@@ -13,7 +14,7 @@ export default function UserProfile(){
         setLoading(true);
         try{
             const {data: { session }} = await supabase.auth.getSession();
-            const res = await fetch("/api/user-profile",{
+            const res = await fetch(`${API_BASE}/api/user-profile`,{
                 headers:{
                     'Authorization': `Bearer ${session?.access_token}`
                 }

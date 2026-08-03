@@ -3,6 +3,7 @@ import ReactFlow, { Background, Controls, MiniMap, MarkerType, Handle, Position 
 import 'reactflow/dist/style.css';
 import dagre from '@dagrejs/dagre';
 import { supabase } from '../supabaseClient';
+import { API_BASE } from '../../utils/api';
 
 const NODE_WIDTH = 180;
 const NODE_HEIGHT = 60;
@@ -93,7 +94,7 @@ export default function KnowledgeGraphDashboard({ videoId: initialVideoId = null
       try{
         // Bug Fix #1: All backend routes use reqAuth middleware → must send Bearer token
         const { data: { session } } = await supabase.auth.getSession();
-        const res = await fetch("/api/videos", {
+        const res = await fetch(`${API_BASE}/api/videos`, {
           headers: { 'Authorization': `Bearer ${session?.access_token}` }
         });
         const data = await res.json();
@@ -114,8 +115,8 @@ export default function KnowledgeGraphDashboard({ videoId: initialVideoId = null
         // Bug Fix #1: send auth header — backend requires Bearer token on all /api/graph routes
         const { data: { session } } = await supabase.auth.getSession();
         const endpoint = activeVideoId
-          ? `/api/graph/video/${activeVideoId}`
-          : `/api/graph`;
+          ? `${API_BASE}/api/graph/video/${activeVideoId}`
+          : `${API_BASE}/api/graph`;
 
         const res = await fetch(endpoint, {
           headers: { 'Authorization': `Bearer ${session?.access_token}` }

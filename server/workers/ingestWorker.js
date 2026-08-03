@@ -9,7 +9,6 @@ import {fetchSingleVideoTranscript, fetchPlaylistVideoIds} from "../services/fet
 import { cleanTranscript,chunkText } from "../services/chunkText.js";
 import { embedChunks } from "../services/embedChunks.js";
 import { extractConcepts } from "../services/extractConcepts.js";
-import { title } from "process";
 import {Graph} from "../services/buildGraphs.js";
 import { generateQuestions } from "../services/generateQuestions.js";
 import { updateVideoStatus } from "../services/updateVideoStatus.js";
@@ -22,8 +21,11 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
-
-const connection = new IORedis(REDIS_URL,{maxRetriesPerRequest: null}); // Required by BullMQ to prevent connection drops
+const isTls = REDIS_URL.startsWith('rediss://');
+const connection = new IORedis(REDIS_URL, {
+    maxRetriesPerRequest: null, // Required by BullMQ
+    tls: isTls ? { rejectUnauthorized: false } : undefined
+});
 
 const ingestQueue = new Queue("youtube-ingestion",{connection});    //Queue creation
 

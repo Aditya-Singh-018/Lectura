@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { API_BASE } from '../../utils/api';
 
 export default function AdaptiveQuiz({ videoId, onNavigate }) {
   const [currentQuestion, setCurrentQuestion] = useState(null);
@@ -20,7 +21,7 @@ export default function AdaptiveQuiz({ videoId, onNavigate }) {
     setSelectedOption(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`/api/adaptive-next?videoId=${videoId}`,{
+      const res = await fetch(`${API_BASE}/api/adaptive-next?videoId=${videoId}`,{
         headers:{
           'Authorization': `Bearer ${session?.access_token}`
         }
@@ -55,7 +56,7 @@ export default function AdaptiveQuiz({ videoId, onNavigate }) {
 
     try {
         const { data: { session } } = await supabase.auth.getSession();
-        const res = await fetch('/api/submit-choice', {
+        const res = await fetch(`${API_BASE}/api/submit-choice`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

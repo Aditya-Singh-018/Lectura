@@ -1,6 +1,7 @@
 // client/src/components/LecturesView.jsx
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { API_BASE } from '../../utils/api';
 
 export default function LecturesView({ onSelectGraph, onSelectQuiz }) {
   const [videos, setVideos] = useState([]);
@@ -10,7 +11,7 @@ export default function LecturesView({ onSelectGraph, onSelectQuiz }) {
     async function fetchVideos() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const res = await fetch("/api/videos", {
+        const res = await fetch(`${API_BASE}/api/videos`, {
           headers: { 'Authorization': `Bearer ${session?.access_token}` }
         });
         const data = await res.json();

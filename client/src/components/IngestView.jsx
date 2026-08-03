@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { API_BASE } from '../../utils/api';
 
 export default function IngestView() {
   const [url, setUrl] = useState('');
@@ -33,7 +34,7 @@ export default function IngestView() {
     //Event Source Tracker
     const {data:{session}} = await supabase.auth.getSession();
     try{
-        const responce = await fetch("/api/ingest",{
+        const responce = await fetch(`${API_BASE}/api/ingest`,{
             method:"POST",
             headers:{
                 "Content-Type":"application/json",
@@ -51,7 +52,7 @@ export default function IngestView() {
         const videoId = data.videoId;
         setStatus("processing");
 
-        const es = new EventSource(`/api/ingest/status/${videoId}`);    //Event Source obj for managing SSEs
+        const es = new EventSource(`${API_BASE}/api/ingest/status/${videoId}`);    //Event Source obj for managing SSEs
         es.onmessage = (event)=>{
             const payload = JSON.parse(event.data);
 
