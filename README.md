@@ -171,12 +171,6 @@ npm run dev    # starts both client (5173) and server (5000) concurrently
 
 ---
 
-## 📝 License
-
-This project is licensed under the **ISC License**.
-
----
-
 ## 👤 Author
 
 **Aditya Singh**
