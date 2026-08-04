@@ -1,9 +1,9 @@
-# Dependency folders (Never upload these, they are massive)
+# Dependency folders
 node_modules/
 client/node_modules/
 server/node_modules/
 
-# Environment Secrets (CRITICAL: Keeps your API & DB keys private)
+# Environment Secrets
 .env
 client/.env
 server/.env
